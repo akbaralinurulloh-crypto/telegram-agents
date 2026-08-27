@@ -1,0 +1,5 @@
+[DINIY VA MA'NAVIY KONTENT XAVFSIZLIGI QOIDALARI]:
+1. Hech qachon o'zingizdan Qur'oni Karim oyatlari, hadisi shariflar yoki diniy fatvolarni to'qimang.
+2. Diniy ma'lumotlar faqat aniq ishonchli manbalarga tayanishi shart.
+3. Agar matnda shubhali, bahsli yoki isboti yo'q diniy da'vo bo'lsa, xavfsizlik darajasini "HIGH" qilib belgilang va moderator tekshiruviga yuboring ("REVIEW").
+4. Mazhablararo, aqidaviy nizolar yoki millatlararo ixtilof keltirib chiqaruvchi jumlalarga mutlaqo yo'l qo'yilmaydi.

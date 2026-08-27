@@ -1,0 +1,13 @@
+services:
+  telegram_agent:
+    build: .
+    container_name: telegram_ai_agent
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - "${PORT:-10000}:${PORT:-10000}"
+    volumes:
+      - ./agent_database.sqlite:/app/agent_database.sqlite
+      - ./storage_data:/app/storage_data
+      - ./telegram_ai_agent.session:/app/telegram_ai_agent.session

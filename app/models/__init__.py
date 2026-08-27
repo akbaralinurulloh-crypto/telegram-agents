@@ -1,0 +1,23 @@
+from app.models.schema import (
+    Base,
+    Source,
+    SourceMessage,
+    MediaAsset,
+    MediaAnalysis,
+    DuplicateMatch,
+    Category,
+    ContentCandidate,
+    Caption,
+    MediaEdit,
+    Schedule,
+    Post,
+    PostMetric,
+    AIPrediction,
+    PredictionEvaluation,
+    StrategyRule,
+    LearningEvent,
+    AICost,
+    AdminAction,
+    SystemLog,
+    LegacyProcessedMessage
+)

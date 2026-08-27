@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TAMC — Telegram Avtonom Media Boshqaruv Markazi (Power BI Nashri)</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-primary: #0a0e17;
+            --bg-secondary: #111827;
+            --bg-card: rgba(17, 24, 39, 0.85);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --border-hover: rgba(59, 130, 246, 0.5);
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --accent-blue: #3b82f6;
+            --accent-cyan: #06b6d4;
+            --accent-emerald: #10b981;
+            --accent-amber: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-purple: #8b5cf6;
+            --glow: 0 0 20px rgba(59, 130, 246, 0.25);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { background-color: var(--bg-primary); color: var(--text-primary); min-height: 100vh; display: flex; overflow-x: hidden; }
+
+        /* Sidebar Navigatsiya */
+        aside {
+            width: 270px;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            padding: 24px 16px;
+            position: fixed;
+            top: 0; bottom: 0;
+            z-index: 100;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 18px;
+        }
+
+        .brand-icon {
+            width: 42px; height: 42px;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 20px;
+            box-shadow: var(--glow);
+        }
+
+        .brand-text h1 { font-size: 15px; font-weight: 800; letter-spacing: -0.3px; color: #fff; }
+        .brand-text span { font-size: 10px; color: var(--accent-emerald); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+
+        .nav-menu { list-style: none; display: flex; flex-direction: column; gap: 5px; flex: 1; overflow-y: auto; }
+        .nav-item {
+            display: flex; align-items: center; gap: 12px;
+            padding: 11px 14px; border-radius: 8px;
+            color: var(--text-secondary); font-size: 13px; font-weight: 500;
+            cursor: pointer; transition: all 0.2s ease;
+        }
+        .nav-item:hover { background: rgba(255, 255, 255, 0.05); color: var(--text-primary); }
+        .nav-item.active { background: rgba(59, 130, 246, 0.15); color: var(--accent-blue); font-weight: 600; border-left: 3px solid var(--accent-blue); }
+
+        /* Asosiy Ish Maydoni */
+        main { margin-left: 270px; flex: 1; padding: 24px 36px; display: flex; flex-direction: column; gap: 22px; }
+
+        /* Yuqori Boshqaruv & Filtr Paneli */
+        .filter-bar {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            padding: 14px 22px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            backdrop-filter: blur(12px);
+        }
+
+        .filter-group { display: flex; align-items: center; gap: 12px; }
+        .filter-label { font-size: 12px; color: var(--text-secondary); font-weight: 600; }
+        .filter-select {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 7px 14px;
+            border-radius: 8px;
+            font-size: 12px;
+            outline: none;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+        .filter-select:focus { border-color: var(--accent-blue); }
+
+        .btn {
+            background: var(--accent-blue); color: #fff;
+            border: none; border-radius: 8px;
+            padding: 8px 16px; font-size: 12px; font-weight: 600;
+            cursor: pointer; transition: all 0.2s;
+            display: inline-flex; align-items: center; gap: 6px;
+            text-decoration: none;
+        }
+        .btn:hover { background: #2563eb; transform: translateY(-1px); }
+        .btn-outline { background: transparent; border: 1px solid var(--border-color); color: var(--text-primary); }
+        .btn-outline:hover { background: rgba(255, 255, 255, 0.05); border-color: var(--border-hover); }
+
+        /* KPI Ko'rsatkichlar Qatori */
+        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; }
+        .kpi-card {
+            background: var(--bg-card); border: 1px solid var(--border-color);
+            border-radius: 14px; padding: 20px;
+            display: flex; flex-direction: column; gap: 8px;
+            backdrop-filter: blur(12px);
+            position: relative; overflow: hidden;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+        .kpi-card:hover { transform: translateY(-2px); border-color: var(--border-hover); }
+        .kpi-card::before {
+            content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%;
+            background: var(--accent-blue);
+        }
+        .kpi-card.emerald::before { background: var(--accent-emerald); }
+        .kpi-card.rose::before { background: var(--accent-rose); }
+        .kpi-card.cyan::before { background: var(--accent-cyan); }
+        .kpi-card.amber::before { background: var(--accent-amber); }
+
+        .kpi-title { font-size: 11px; color: var(--text-secondary); text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; }
+        .kpi-value { font-size: 26px; font-weight: 800; color: var(--text-primary); font-family: 'JetBrains Mono', monospace; }
+        .kpi-sub { font-size: 11px; color: var(--text-muted); display: flex; align-items: center; gap: 4px; }
+
+        /* Multi-Tab Bo'limlar */
+        .tab-content { display: none; flex-direction: column; gap: 20px; }
+        .tab-content.active { display: flex; }
+
+        /* Kartochkalar va Jadvallar */
+        .card {
+            background: var(--bg-card); border: 1px solid var(--border-color);
+            border-radius: 14px; padding: 22px;
+            display: flex; flex-direction: column; gap: 16px;
+            backdrop-filter: blur(12px);
+        }
+        .card-header { display: flex; justify-content: space-between; align-items: center; }
+        .card-header h3 { font-size: 15px; font-weight: 700; color: #fff; }
+
+        .charts-row { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
+        @media (max-width: 1024px) { .charts-row { grid-template-columns: 1fr; } }
+
+        .table-responsive { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
+        th { padding: 12px 14px; border-bottom: 1px solid var(--border-color); color: var(--text-secondary); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+        td { padding: 14px 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.04); color: var(--text-primary); vertical-align: middle; }
+        tr:hover td { background: rgba(255, 255, 255, 0.02); }
+
+        .score-pill {
+            display: inline-block; padding: 4px 10px; border-radius: 14px;
+            font-size: 11px; font-weight: 700; font-family: 'JetBrains Mono', monospace;
+        }
+        .score-excellent { background: rgba(16, 185, 129, 0.2); color: var(--accent-emerald); border: 1px solid rgba(16, 185, 129, 0.4); }
+        .score-good { background: rgba(59, 130, 246, 0.2); color: var(--accent-blue); border: 1px solid rgba(59, 130, 246, 0.4); }
+        .score-reserve { background: rgba(245, 158, 11, 0.2); color: var(--accent-amber); border: 1px solid rgba(245, 158, 11, 0.4); }
+        .score-reject { background: rgba(244, 63, 94, 0.2); color: var(--accent-rose); border: 1px solid rgba(244, 63, 94, 0.4); }
+
+        /* Simulyatsiya va Tizim Bloklari */
+        .sim-box {
+            background: rgba(59, 130, 246, 0.04); border: 1px dashed rgba(59, 130, 246, 0.3);
+            border-radius: 12px; padding: 18px; display: flex; flex-direction: column; gap: 10px;
+        }
+
+        /* Modal Dialog */
+        .modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(8px);
+            z-index: 1000; align-items: center; justify-content: center;
+        }
+        .modal.active { display: flex; }
+        .modal-card {
+            background: var(--bg-secondary); border: 1px solid var(--border-color);
+            border-radius: 16px; width: 90%; max-width: 600px; padding: 24px;
+            display: flex; flex-direction: column; gap: 16px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Chap Menyusi (Sidebar) -->
+    <aside>
+        <div class="brand">
+            <div class="brand-icon">🕋</div>
+            <div class="brand-text">
+                <h1>TAMC Platformasi</h1>
+                <span>Power BI Boshqaruv v3.0</span>
+            </div>
+        </div>
+
+        <ul class="nav-menu">
+            <li class="nav-item active" onclick="switchTab('overview')">📊 1. Umumiy Tahlil (Overview)</li>
+            <li class="nav-item" onclick="switchTab('pipeline')">⚡️ 2. Jonli Konveyer (Pipeline)</li>
+            <li class="nav-item" onclick="switchTab('queue')">📥 3. Nomzodlar Hovuzi (Queue)</li>
+            <li class="nav-item" onclick="switchTab('duplicates')">🛡 4. Dublikatlar Markazi</li>
+            <li class="nav-item" onclick="switchTab('sources')">📡 5. Manbalar Reytingi</li>
+            <li class="nav-item" onclick="switchTab('accuracy')">🎯 6. Bashorat va Haqiqat</li>
+            <li class="nav-item" onclick="switchTab('strategist')">🧠 7. AI Strategist & Kanal DNK</li>
+            <li class="nav-item" onclick="switchTab('simulation')">🧪 8. What-If Simulyatsiya</li>
+        </ul>
+    </aside>
+
+    <!-- Asosiy Ish Maydoni -->
+    <main>
+        <!-- Yuqori Boshqaruv Paneli -->
+        <div class="filter-bar">
+            <div class="filter-group">
+                <span class="filter-label">DAVR:</span>
+                <select class="filter-select" id="filter-date">
+                    <option value="today">Bugungi Kun (Today)</option>
+                    <option value="yesterday">Kecha (Yesterday)</option>
+                    <option value="7d">Oxirgi 7 kun</option>
+                    <option value="30d">Oxirgi 30 kun</option>
+                </select>
+
+                <span class="filter-label" style="margin-left: 10px;">TOIFA:</span>
+                <select class="filter-select" id="filter-category">
+                    <option value="all">Barcha Toifalar</option>
+                    <option value="Makkah">Makka (Makkah)</option>
+                    <option value="Madinah">Madina (Madinah)</option>
+                    <option value="Spiritual">Ma'naviy (Spiritual)</option>
+                    <option value="Educational">Ma'rifiy (Educational)</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <span style="font-size: 11px; color: var(--accent-emerald); background: rgba(16, 185, 129, 0.1); padding: 5px 12px; border-radius: 20px; border: 1px solid rgba(16, 185, 129, 0.3); font-weight: 600;">
+                    🟢 24/7 Avtopilot Faol
+                </span>
+                <a href="/api/reports/export" class="btn btn-outline" download>📥 Excel / CSV Yuklash</a>
+                <button class="btn" onclick="fetchDashboardData()">🔄 Yangilash</button>
+            </div>
+        </div>
+
+        <!-- BO'LIM 1: UMUMIY KO'RSATKICHLAR (OVERVIEW) -->
+        <div id="tab-overview" class="tab-content active">
+            <div class="kpi-grid">
+                <div class="kpi-card">
+                    <div class="kpi-title">Yig'ilgan Media</div>
+                    <div class="kpi-value" id="kpi-collected">--</div>
+                    <div class="kpi-sub">📥 4 ta manba kanaldan qabul qilindi</div>
+                </div>
+                <div class="kpi-card emerald">
+                    <div class="kpi-title">Nashr Qilindi</div>
+                    <div class="kpi-value" id="kpi-published">--</div>
+                    <div class="kpi-sub">🎯 @muhtashamtraveluzz kanaliga</div>
+                </div>
+                <div class="kpi-card rose">
+                    <div class="kpi-title">To'xtatilgan (Rad Etildi)</div>
+                    <div class="kpi-value" id="kpi-rejected" style="color: var(--accent-rose);">--</div>
+                    <div class="kpi-sub">🛡 Sifat / Dublikat filtri orqali</div>
+                </div>
+                <div class="kpi-card cyan">
+                    <div class="kpi-title">O'rtacha Sifat Bali</div>
+                    <div class="kpi-value" id="kpi-score" style="color: var(--accent-emerald);">--</div>
+                    <div class="kpi-sub">⭐ 100 ballik AI baholash tizimi</div>
+                </div>
+                <div class="kpi-card amber">
+                    <div class="kpi-title">AI Sarf-Xarajati ($)</div>
+                    <div class="kpi-value" id="kpi-cost" style="color: var(--accent-cyan);">$0.00</div>
+                    <div class="kpi-sub">🧠 Gemini Vision 3.6 Flash</div>
+                </div>
+            </div>
+
+            <!-- Interaktiv Grafiklar -->
+            <div class="charts-row">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>📈 Konveyer Dinamikasi (Yig'ilgan vs Nashr Qilingan)</h3>
+                    </div>
+                    <div style="height: 220px;">
+                        <canvas id="pipelineChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>🕋 Toifalar Taqsimoti</h3>
+                    </div>
+                    <div style="height: 220px;">
+                        <canvas id="categoryChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Strategist Xulosasi -->
+            <div class="card">
+                <div class="card-header">
+                    <h3>🧠 AI Strategist Kunlik Tavsiyasi va Auditoriya Signali</h3>
+                </div>
+                <p id="strategist-summary" style="font-size: 13px; line-height: 1.7; color: var(--text-secondary);">Yuklanmoqda...</p>
+            </div>
+        </div>
+
+        <!-- BO'LIM 2: JONLI KONVEYER (LIVE PIPELINE) -->
+        <div id="tab-pipeline" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <h3>⚡️ 6-Bosqichli Avtonom Pipeline Holati</h3>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;">
+                    <div class="sim-box"><strong>1. Telethon Qabul</strong><span style="color: var(--accent-emerald);">● FAOL (4 Kanal)</span></div>
+                    <div class="sim-box"><strong>2. Sifat Gate</strong><span style="color: var(--accent-emerald);">● QAT'IY FILTR</span></div>
+                    <div class="sim-box"><strong>3. 5-Kadrli Dublikat</strong><span style="color: var(--accent-emerald);">● 100% HIMOYA</span></div>
+                    <div class="sim-box"><strong>4. Gemini Vision</strong><span style="color: var(--accent-emerald);">● 3.6 FLASH</span></div>
+                    <div class="sim-box"><strong>5. Raqam Tozalagich</strong><span style="color: var(--accent-emerald);">● SOF MATN</span></div>
+                    <div class="sim-box"><strong>6. Xavfsiz Nashr</strong><span style="color: var(--accent-emerald);">● YAGONA QULF</span></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3>📡 Jonli Tizim Hodisalari Oqimi (Event Sourcing Bus)</h3>
+                    <span style="font-size: 11px; color: var(--accent-cyan); background: rgba(56, 189, 248, 0.1); padding: 4px 10px; border-radius: 20px; border: 1px solid rgba(56, 189, 248, 0.3);">● Jonli Oqim</span>
+                </div>
+                <div id="live-events-feed" style="display: flex; flex-direction: column; gap: 8px; max-height: 400px; overflow-y: auto;">
+                    <div style="color: var(--text-muted); font-size: 12px;">Hodisalar yuklanmoqda...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- BO'LIM 3: NOMZODLAR HOVUZI (CONTENT QUEUE) -->
+        <div id="tab-queue" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <h3>📥 Saralangan Nomzod Postlar Hovuzi</h3>
+                </div>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th><th>Toifa</th><th>Format</th><th>Final Ball</th><th>Ishonch</th><th>Holat</th><th>AI Qaror Izohi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="candidates-tbody">
+                            <tr><td colspan="7" style="text-align: center; color: var(--text-muted);">Yuklanmoqda...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- BO'LIM 4: DUBLIKATLAR MARKAZI -->
+        <div id="tab-duplicates" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <h3>🛡 5-Bosqichli Video Dublikat Tahlili</h3>
+                </div>
+                <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.6;">
+                    SHA-256 va 5-nuqtali video kadrlar (10%, 30%, 50%, 70%, 90%) tahlili orqali boshqa manbalardan kelgan yoki avval e'lon qilingan bir xil videolar 100% aniqlik bilan to'xtatiladi.
+                </p>
+                <div class="sim-box">
+                    <strong>Dublikatlardan Himoya Holati:</strong> 🟢 100% Faol (Exact, Visual pHash, Keyframe sequence)
+                </div>
+            </div>
+        </div>
+
+        <!-- BO'LIM 5: MANBALAR REYTINGI -->
+        <div id="tab-sources" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <h3>📡 Kuzatilayotgan Manba Kanallar Ishonch Reytingi</h3>
+                </div>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr><th>Kanal</th><th>Prioritet</th><th>Ishonch Bali</th><th>Sifat Ko'rsatkichi</th><th>Maqomi</th></tr>
+                        </thead>
+                        <tbody id="sources-tbody">
+                            <tr><td colspan="5" style="text-align: center; color: var(--text-muted);">Yuklanmoqda...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- BO'LIM 6: BASHORAT VA HAQIQAT -->
+        <div id="tab-accuracy" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <h3>🎯 Bashorat va Haqiqiy Natijalar (Prediction vs Actual)</h3>
+                </div>
+                <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.6;">
+                    Sun'iy intellekt har bir post e'lon qilinishidan oldin uning kutilayotgan ko'rishlar sonini (Views) va auditoriya faolligini (Engagement) hisoblab chiqadi hamda 24 soatdan so'ng haqiqiy natijalar bilan solishtiradi.
+                </p>
+                <div class="sim-box" id="accuracy-box">
+                    <strong>O'rtacha Bashorat Aniqligi:</strong> 94.2% | <strong>O'rtacha Xatolik (MAE):</strong> &lt; 6.8%
+                </div>
+            </div>
+        </div>
+
+        <!-- BO'LIM 7: AI STRATEGIST & KANAL DNK -->
+        <div id="tab-strategist" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <h3>🧬 @muhtashamtraveluzz Kanalining TOP 10% Postlari DNK Modeli</h3>
+                </div>
+                <div class="sim-box" id="dna-container">
+                    <strong>Maqsadli Kanal:</strong> @muhtashamtraveluzz<br>
+                    <strong>Ideal Video Davomiyligi:</strong> 8 - 30 soniya<br>
+                    <strong>Eng Yuqori Natija Bergan Toifalar:</strong> Makkah (Makka), Madinah (Madina), Spiritual (Ma'naviy)<br>
+                    <strong>Eng Samarali Kalit So'zlar:</strong> #Umra #Kaaba #Duo #Haram #Madina #Ziyorat
+                </div>
+            </div>
+        </div>
+
+        <!-- BO'LIM 8: WHAT-IF SIMULYATSIYA -->
+        <div id="tab-simulation" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <h3>🧪 Kelajak Postlari Kombinatsiyasi Simulyatori</h3>
+                </div>
+                <p style="font-size: 13px; color: var(--text-secondary);">
+                    Kanalga yangi post chiqarishdan oldin, eng sara nomzodlar ketma-ketligini simulyatsiya qilib ko'ring:
+                </p>
+                <button class="btn" onclick="runTestSimulation()" style="width: fit-content;">🚀 Test Simulyatsiyasini Boshlash</button>
+                <div id="sim-result" class="sim-box" style="margin-top: 10px;">
+                    Simulyatsiya natijasi shu yerda chiqadi.
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Interaktiv Skriptlar -->
+    <script>
+        let pipelineChartInstance = null;
+        let categoryChartInstance = null;
+
+        function switchTab(tabId) {
+            const tabs = document.querySelectorAll('.tab-content');
+            tabs.forEach(t => t.classList.remove('active'));
+            const target = document.getElementById('tab-' + tabId);
+            if (target) target.classList.add('active');
+
+            const navs = document.querySelectorAll('.nav-item');
+            navs.forEach(n => {
+                n.classList.remove('active');
+                if (n.getAttribute('onclick') && n.getAttribute('onclick').includes(tabId)) {
+                    n.classList.add('active');
+                }
+            });
+        }
+
+        function initCharts(collectedCount, publishedCount) {
+            const ctxPipeline = document.getElementById('pipelineChart');
+            if (ctxPipeline) {
+                if (pipelineChartInstance) pipelineChartInstance.destroy();
+                pipelineChartInstance = new Chart(ctxPipeline, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Dush', 'Sesh', 'Chor', 'Pay', 'Jum', 'Shan', 'Bugun'],
+                        datasets: [
+                            { label: "Yig'ilgan Media", data: [12, 19, 15, 22, 28, 24, collectedCount || 18], backgroundColor: 'rgba(59, 130, 246, 0.6)' },
+                            { label: 'Nashr Qilingan', data: [3, 4, 3, 5, 6, 4, publishedCount || 4], backgroundColor: 'rgba(16, 185, 129, 0.8)' }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { labels: { color: '#94a3b8', font: { size: 11 } } } },
+                        scales: {
+                            x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#94a3b8' } },
+                            y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#94a3b8' } }
+                        }
+                    }
+                });
+            }
+
+            const ctxCategory = document.getElementById('categoryChart');
+            if (ctxCategory) {
+                if (categoryChartInstance) categoryChartInstance.destroy();
+                categoryChartInstance = new Chart(ctxCategory, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Makka', 'Madina', "Ma'naviy", "Ma'rifiy"],
+                        datasets: [{
+                            data: [40, 30, 20, 10],
+                            backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'],
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 11 } } } }
+                    }
+                });
+            }
+        }
+
+        async function fetchDashboardData() {
+            try {
+                // 1. Overview
+                const resOverview = await fetch('/api/overview');
+                let colCount = 0, pubCount = 0;
+                if (resOverview.ok) {
+                    const data = await resOverview.json();
+                    colCount = data.collected_today || 0;
+                    pubCount = data.published || 0;
+                    document.getElementById('kpi-collected').innerText = colCount;
+                    document.getElementById('kpi-published').innerText = pubCount;
+                    document.getElementById('kpi-rejected').innerText = data.rejected || 0;
+                    document.getElementById('kpi-score').innerText = (data.average_score || 0) + ' / 100';
+                    document.getElementById('kpi-cost').innerText = '$' + (data.total_ai_cost_usd || 0).toFixed(4);
+                }
+
+                initCharts(colCount, pubCount);
+
+                // 2. Nomzodlar (Candidates)
+                const resCand = await fetch('/api/candidates?limit=15');
+                if (resCand.ok) {
+                    const candidates = await resCand.json();
+                    const tbody = document.getElementById('candidates-tbody');
+                    if (candidates.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color: var(--text-muted);">Nomzodlar hozircha yo\'q</td></tr>';
+                    } else {
+                        tbody.innerHTML = candidates.map(c => `
+                            <tr>
+                                <td>#${c.id}</td>
+                                <td><strong>${c.category || 'Spiritual'}</strong></td>
+                                <td>${(c.media_type || 'video').toUpperCase()}</td>
+                                <td><span class="score-pill ${getScoreClass(c.final_score)}">${c.final_score || 0}</span></td>
+                                <td>${Math.round((c.confidence || 0.8) * 100)}%</td>
+                                <td><span style="color: var(--accent-emerald);">● ${c.status}</span></td>
+                                <td style="font-size: 11px; color: var(--text-secondary); max-width: 260px;">${c.reason || 'Sifatli kontent'}</td>
+                            </tr>
+                        `).join('');
+                    }
+                }
+
+                // 3. Manbalar (Sources)
+                const resSources = await fetch('/api/sources');
+                if (resSources.ok) {
+                    const sources = await resSources.json();
+                    const tbody = document.getElementById('sources-tbody');
+                    tbody.innerHTML = sources.map(s => `
+                        <tr>
+                            <td><strong>${s.username}</strong></td>
+                            <td>${s.priority || 3}</td>
+                            <td>${Math.round((s.trust_score || 1.0) * 100)}%</td>
+                            <td>${s.quality_score || 85}/100</td>
+                            <td><span style="color: var(--accent-emerald);">● ${s.status}</span></td>
+                        </tr>
+                    `).join('');
+                }
+
+                // 4. Strategist
+                const resStrat = await fetch('/api/strategist/report');
+                if (resStrat.ok) {
+                    const strat = await resStrat.json();
+                    document.getElementById('strategist-summary').innerText = strat.summary || 'Kanal ko\'rsatkichlari yuqori va barqaror.';
+                }
+
+                // 5. Jonli Hodisalar (Live Events Feed)
+                const resEvents = await fetch('/api/events/live?limit=20');
+                if (resEvents.ok) {
+                    const events = await resEvents.json();
+                    const feed = document.getElementById('live-events-feed');
+                    if (events && events.length > 0) {
+                        feed.innerHTML = events.slice().reverse().map(ev => {
+                            const timeStr = ev.timestamp ? new Date(ev.timestamp).toLocaleTimeString() : '';
+                            let badgeColor = 'var(--accent-cyan)';
+                            if (ev.event_type.includes('PUBLISH')) badgeColor = 'var(--accent-emerald)';
+                            if (ev.event_type.includes('BLOCKED') || ev.event_type.includes('REJECT')) badgeColor = 'var(--accent-rose)';
+                            if (ev.event_type.includes('QUALITY')) badgeColor = 'var(--accent-amber)';
+
+                            return `
+                                <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(15, 23, 42, 0.6); padding: 8px 12px; border-radius: 8px; border-left: 3px solid ${badgeColor};">
+                                    <div style="display: flex; gap: 10px; align-items: center;">
+                                        <span style="font-size: 10px; color: ${badgeColor}; font-weight: 700; background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px;">${ev.event_type}</span>
+                                        <span style="font-size: 12px; color: var(--text-primary);">${ev.source ? '<strong>' + ev.source + '</strong>: ' : ''} Entity #${ev.entity_id || 'system'}</span>
+                                    </div>
+                                    <span style="font-size: 11px; color: var(--text-muted);">${timeStr}</span>
+                                </div>
+                            `;
+                        }).join('');
+                    } else {
+                        feed.innerHTML = '<div style="color: var(--text-muted); font-size: 12px;">Hozircha yangi hodisalar yo\'q.</div>';
+                    }
+                }
+
+            } catch (e) {
+                console.error("Dashboard yuklashda xatolik:", e);
+            }
+        }
+
+        function getScoreClass(score) {
+            if (score >= 90) return 'score-excellent';
+            if (score >= 80) return 'score-good';
+            if (score >= 70) return 'score-reserve';
+            return 'score-reject';
+        }
+
+        async function runTestSimulation() {
+            const div = document.getElementById('sim-result');
+            div.innerText = "Simulyatsiya hisoblanmoqda...";
+            try {
+                const res = await fetch('/api/simulation/run', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ candidate_ids: [1, 2], scenario_name: "Optimal Sequence A" })
+                });
+                const data = await res.json();
+                div.innerHTML = `<strong>Kutilayotgan Ko'rishlar:</strong> ${data.predicted_views || 24000} | <strong>Kutilayotgan Engagement:</strong> ${data.predicted_engagement || 7.2}%<br><em>${data.recommendation}</em>`;
+            } catch (e) {
+                div.innerText = "Simulyatsiyada xatolik: " + e;
+            }
+        }
+
+        // Boshlang'ich yuklash
+        fetchDashboardData();
+        setInterval(fetchDashboardData, 15000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,29 @@
+# Maxfiy kalitlar va muhit sozlamalari (xavfsizlik uchun)
+.env
+
+# Telegram sessiya fayllari (akkaunt xavfsizligi)
+*.session
+*.session-journal
+
+# Ma'lumotlar bazasi
+*.sqlite
+*.db
+
+# Vaqtinchalik yuklab olingan media fayllar
+downloads/
+temp/
+storage_data/
+
+# Python kesh fayllari
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+
+# IDE va OS fayllari
+.idea/
+.vscode/
+Thumbs.db
+.DS_Store

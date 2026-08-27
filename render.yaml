@@ -1,0 +1,40 @@
+services:
+  - type: web
+    name: telegram-ai-agent
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python agent.py
+    plan: free
+    envVars:
+      - key: TELEGRAM_API_ID
+        sync: false
+      - key: TELEGRAM_API_HASH
+        sync: false
+      - key: TELEGRAM_SESSION_STRING
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-3.6-flash
+      - key: SOURCE_CHANNELS
+        sync: false
+      - key: TARGET_CHANNEL
+        sync: false
+      - key: MIN_QUALITY_SCORE
+        value: "6"
+      - key: CHANNEL_TOPIC
+        sync: false
+      - key: GOOGLE_SHEETS_WEBHOOK_URL
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: ADMIN_TELEGRAM_IDS
+        value: "240409213, 7558601798"
+      - key: REPORT_TIMEZONE
+        value: Asia/Tashkent
+      - key: MORNING_REPORT_TIME
+        value: "08:00"
+      - key: MIDDAY_REPORT_TIME
+        value: "13:00"
+      - key: EVENING_REPORT_TIME
+        value: "21:00"
