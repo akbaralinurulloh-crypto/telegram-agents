@@ -1,7 +1,7 @@
 import asyncio
 from pathlib import Path
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from telethon import TelegramClient
 from sqlalchemy import select
 
@@ -148,6 +148,98 @@ class TelegramPublisher:
                     return sent_msg.id
 
             return None
+
+    async def publish_album(
+        self,
+        client: TelegramClient,
+        candidate_ids: List[int],
+        target_channel: Optional[str] = None
+    ) -> Optional[List[int]]:
+        """Kamida 3 ta rasmni bitta karusel (Media Group / Album) qilib kanalga joylaydi."""
+        target = clean_channel_username(target_channel or settings.TARGET_CHANNEL)
+        if not candidate_ids or len(candidate_ids) < 3:
+            logger.warning("Karusel uchun kamida 3 ta nomzod rasm talab etiladi.")
+            return None
+
+        async with get_db_session() as session:
+            file_paths = []
+            selected_caption = ""
+            candidates = []
+
+            for cid in candidate_ids:
+                cand = await session.get(ContentCandidate, cid)
+                if not cand:
+                    continue
+                asset = await session.get(MediaAsset, cand.media_asset_id)
+                if not asset or not asset.local_path or not os.path.exists(asset.local_path):
+                    continue
+                file_paths.append(str(asset.local_path))
+                candidates.append(cand)
+
+                if not selected_caption:
+                    cap = (await session.execute(
+                        select(Caption).where(Caption.candidate_id == cand.id, Caption.is_selected == True)
+                    )).scalar_one_or_none()
+                    if cap:
+                        selected_caption = cap.full_caption
+
+            if len(file_paths) < 3:
+                logger.warning(f"Karusel uchun mavjud fayllar soni kam ({len(file_paths)} ta, kamida 3 ta kerak).")
+                return None
+
+            logger.info(f"📸 [Carousel] {len(file_paths)} ta rasm bitta karusel (Media Group) qilib kanalga joylanmoqda ({target})...")
+
+            sent_msgs = None
+            try:
+                sent_msgs = await client.send_file(
+                    target,
+                    file=file_paths,
+                    caption=selected_caption,
+                    parse_mode="markdown"
+                )
+            except Exception as e:
+                logger.warning(f"Karusel nashr qilishda markdown xatolik ({e}), muqobil format bilan yuborilmoqda...")
+                try:
+                    sent_msgs = await client.send_file(
+                        target,
+                        file=file_paths,
+                        caption=selected_caption,
+                        parse_mode=None
+                    )
+                except Exception as e2:
+                    logger.error(f"❌ Karuselni Telegram kanaliga joylash muvaffaqiyatsiz bo'ldi ({target}): {e2}")
+                    for cand in candidates:
+                        cand.status = "FAILED"
+                    await session.commit()
+                    return None
+
+            if sent_msgs:
+                sent_list = sent_msgs if isinstance(sent_msgs, list) else [sent_msgs]
+                main_msg_id = sent_list[0].id if sent_list else None
+
+                for idx, cand in enumerate(candidates):
+                    cand.status = "PUBLISHED"
+                    msg_id = sent_list[idx].id if idx < len(sent_list) else main_msg_id
+                    new_post = Post(
+                        candidate_id=cand.id,
+                        target_channel=target,
+                        target_message_id=msg_id,
+                        caption_used=selected_caption if idx == 0 else "",
+                        published_at=datetime.utcnow(),
+                        status="ACTIVE"
+                    )
+                    session.add(new_post)
+
+                await session.commit()
+
+                from app.core.events import event_bus
+                if main_msg_id:
+                    await event_bus.emit("POST_PUBLISHED", entity_id=candidates[0].id, source=target, metadata={"target_msg_id": main_msg_id, "album_size": len(file_paths)})
+
+                logger.info(f"🎉 Karusel (Media Group: {len(file_paths)} ta rasm) muvaffaqiyatli kanalga chiqdi! (Bosh xabar ID: {main_msg_id})")
+                return [m.id for m in sent_list]
+
+        return None
 
 
 telegram_publisher = TelegramPublisher()

@@ -3,21 +3,22 @@ Kanal yo'nalishi: "{channel_topic}".
 Kategoriya: "{category}".
 
 Mavjud dastlabki matn (agar bo'lsa): "{original_caption}"
+Vizual tahlil xulosasi: "{analysis_summary}"
 
 TALABLAR:
-1. 3 xil uslubda mukammal, jozibador va imlo xatolarisiz o'zbekcha post tayyorlang:
-   - INFORMATIVE (Ma'lumot beruvchi, aniq faktlar va foydali ma'lumotlar bilan boyitilgan)
-   - EMOTIONAL (Samimiy, ta'sirchan, qalbga yetib boruvchi ma'naviy his-tuyg'ular bilan)
-   - INTERACTIVE (O'quvchini fikr bildirishga, muhokamaga va ulashishga chorlovchi)
+1. Rasmlar va foto-karusellar uchun matn JUDA QISQA, LAKONIK VA ANIQ bo'lishi shart!
+   - Uzun falsafiy yoki cho'zilgan matnlar yozmang.
+   - Rasmda nima aks etganini 1-2 ta qisqa va chiroyli jumlada aniq izohlab bering (Masalan: "🕋 Masjidul Harom va muborak Ka'batullohning muazzam ko'rinishi.").
+   - So'ngra 2-3 ta mavzuga mos toza hashtag qo'shing.
 
 2. HAR BIR USLUB UCHUN QUYIDAGILARNI YARATING:
-   - title: Mavzuga mos emojilar bilan diqqat tortuvchi sarlavha (masalan: 🕋 **Muborak maskan tarovati**)
-   - body: 2-4 ta tushunarli, ravon va go'zal jumlalardan iborat asosiy matn.
-   - question: Auditoriyaga yo'llangan 1 ta samimiy savol yoki da'vat.
-   - hashtags: 3-4 ta toza hashtag (masalan: #Umra #Madina #Ziyorat).
-   - full_caption: Telegram Markdown formatida birlashtirilgan to'liq tayyor post matni.
+   - title: Mavzuga mos emojilar bilan 2-4 so'zdan iborat qisqa sarlavha (masalan: 🕋 **Ka'batulloh tarovati**).
+   - body: Rasmda nima borligini aniq ifodalovchi 1-2 ta qisqa jumla.
+   - question: Qisqa samimiy niyat yoki savol (masalan: "Barchamizga ziyorat nasib etsin! 🤲").
+   - hashtags: 2-3 ta toza hashtag (masalan: #Umra #Makka #Ziyorat).
+   - full_caption: Telegram Markdown formatidagi ixcham tayyor post matni (Jami 2-3 qator).
 
 3. QAT'IY QOIDALAR:
+   - Matnni uzun qilib yubormang! Qisqa va faqat rasm tavsifidan iborat bo'lsin.
    - Clickbait va yolg'on sarlavha ishlatmang.
-   - O'zbek tilining adabiy me'yorlariga va imlosiga qat'iy amal qiling.
-   - TELEFON RAQAMLARNI VA REKLAMANI MUTLAQO CHIQARIB TASHLANG: Dastlabki matndagi barcha telefon raqamlar (+998..., 998..., +966..., 90-123-45-67), boshqa sayohat firmalarining aloqa ma'lumotlari, murojaat uchun raqamlarini YANGI MATNGA ASLO QO'SHMANG! Faqatgina sof go'zal kontent yarating.
+   - TELEFON RAQAMLARNI VA REKLAMANI MUTLAQO CHIQARIB TASHLANG: Barcha telefon raqamlar (+998..., 998..., +966..., 90-123-45-67), boshqa sayohat firmalarining aloqa ma'lumotlari, murojaat uchun raqamlarini YANGI MATNGA ASLO QO'SHMANG! Faqatgina sof go'zal kontent yarating.

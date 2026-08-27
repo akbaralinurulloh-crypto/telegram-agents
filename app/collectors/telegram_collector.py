@@ -75,6 +75,7 @@ class TelegramMediaCollector:
         self.client = TelegramClient(session, settings.TELEGRAM_API_ID, settings.TELEGRAM_API_HASH)
         self.storage = get_storage_provider()
         self.source_map: Dict[int, str] = {}
+        self.photo_carousel_buffer: Dict[str, List[int]] = {}
 
     async def initialize(self):
         await self.client.connect()
@@ -245,20 +246,58 @@ class TelegramMediaCollector:
 
         # 11. Publishing yoki Scheduling qarori
         if settings.GOVERNANCE_MODE == "AUTO" or (settings.GOVERNANCE_MODE == "SEMI_AUTO" and analysis.confidence >= settings.MIN_AUTO_CONFIDENCE):
-            logger.info(f"✅ [Pipeline] Nomzod {candidate_id} tasdiqlandi! Kanalga nashr qilinmoqda...")
-            await telegram_publisher.publish_candidate(self.client, candidate_id)
-            asyncio.create_task(google_sheets.append_row({
-                "source_channel": source_name,
-                "source_message_id": source_msg_id,
-                "media_type": media_type,
-                "category": analysis.category,
-                "final_score": final_score,
-                "status": "POSTED",
-                "reason": curation.get("summary", ""),
-                "enhanced_caption": selected_caption
-            }))
+            if media_type == "photo":
+                # Rasmlarni alohida-alohida tashlamasdan, kamida 3 tadan karusel (Media Group) qilib chiqarish
+                if source_name not in self.photo_carousel_buffer:
+                    self.photo_carousel_buffer[source_name] = []
+                
+                self.photo_carousel_buffer[source_name].append(candidate_id)
+                current_buffer = self.photo_carousel_buffer[source_name]
+                logger.info(f"📸 [Carousel Buffer] Rasm #{candidate_id} karusel buferiga qo'shildi ({source_name}: {len(current_buffer)}/3 ta).")
+
+                if len(current_buffer) >= 3:
+                    batch_to_publish = list(current_buffer[:10])
+                    self.photo_carousel_buffer[source_name] = list(current_buffer[10:])
+                    logger.info(f"🚀 [Carousel] {len(batch_to_publish)} ta rasm to'plandi. Karusel (Media Group) qilib kanalga joylanmoqda...")
+                    sent_ids = await telegram_publisher.publish_album(self.client, batch_to_publish)
+                    if sent_ids:
+                        asyncio.create_task(google_sheets.append_row({
+                            "source_channel": source_name,
+                            "source_message_id": source_msg_id,
+                            "media_type": f"photo_carousel ({len(batch_to_publish)} photos)",
+                            "category": analysis.category,
+                            "final_score": final_score,
+                            "status": "POSTED",
+                            "reason": f"{len(batch_to_publish)} ta rasm karusel (Media Group) qilib joylandi",
+                            "enhanced_caption": selected_caption
+                        }))
+                else:
+                    logger.info(f"⏳ [Carousel Buffer] Karusel uchun yana {3 - len(current_buffer)} ta rasm kutilmoqda...")
+                    asyncio.create_task(google_sheets.append_row({
+                        "source_channel": source_name,
+                        "source_message_id": source_msg_id,
+                        "media_type": "photo",
+                        "category": analysis.category,
+                        "final_score": final_score,
+                        "status": "BUFFERED",
+                        "reason": f"Karusel buferida ({len(current_buffer)}/3 ta rasm kutilmoqda)",
+                        "enhanced_caption": selected_caption
+                    }))
+            else:
+                logger.info(f"✅ [Pipeline] Video nomzod #{candidate_id} tasdiqlandi! Kanalga nashr qilinmoqda...")
+                await telegram_publisher.publish_candidate(self.client, candidate_id)
+                asyncio.create_task(google_sheets.append_row({
+                    "source_channel": source_name,
+                    "source_message_id": source_msg_id,
+                    "media_type": media_type,
+                    "category": analysis.category,
+                    "final_score": final_score,
+                    "status": "POSTED",
+                    "reason": curation.get("summary", ""),
+                    "enhanced_caption": selected_caption
+                }))
         else:
-            logger.info(f"⏳ [Pipeline] Nomzod {candidate_id} moderatsiya (Review) kutmoqda.")
+            logger.info(f"⏳ [Pipeline] Nomzod #{candidate_id} moderatsiya (Review) kutmoqda.")
             asyncio.create_task(google_sheets.append_row({
                 "source_channel": source_name,
                 "source_message_id": source_msg_id,
