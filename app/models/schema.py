@@ -41,7 +41,7 @@ class SourceMessage(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     source = relationship("Source", back_populates="messages")
-    media_asset = relationship("MediaAsset", back_populates="source_message", uselist=False)
+    media_asset = relationship("MediaAsset", back_populates="source_message", uselist=False, cascade="all, delete-orphan")
 
 
 class MediaAsset(Base):
@@ -49,7 +49,7 @@ class MediaAsset(Base):
     __tablename__ = "media_assets"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    source_message_id = Column(Integer, ForeignKey("source_messages.id"), nullable=True, index=True)
+    source_message_id = Column(Integer, ForeignKey("source_messages.id", ondelete="CASCADE"), nullable=True, index=True)
     storage_provider = Column(String(32), default="local")  # local, s3
     storage_key = Column(String(512), nullable=False)
     local_path = Column(String(512), default="")
@@ -61,11 +61,11 @@ class MediaAsset(Base):
     sha256_hash = Column(String(64), index=True)
     phash = Column(String(64), index=True)
     dhash = Column(String(64), index=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
 
     source_message = relationship("SourceMessage", back_populates="media_asset")
-    analysis = relationship("MediaAnalysis", back_populates="media_asset", uselist=False)
-    candidate = relationship("ContentCandidate", back_populates="media_asset", uselist=False)
+    analysis = relationship("MediaAnalysis", back_populates="media_asset", uselist=False, cascade="all, delete-orphan")
+    candidate = relationship("ContentCandidate", back_populates="media_asset", uselist=False, cascade="all, delete-orphan")
 
 
 class MediaAnalysis(Base):

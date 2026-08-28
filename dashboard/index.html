@@ -239,7 +239,14 @@
             </div>
 
             <div class="filter-group">
-                <span style="font-size: 11px; color: var(--accent-emerald); background: rgba(16, 185, 129, 0.1); padding: 5px 12px; border-radius: 20px; border: 1px solid rgba(16, 185, 129, 0.3); font-weight: 600;">
+                <span class="filter-label">REJIM:</span>
+                <select class="filter-select" id="governance-select" onchange="changeGovernanceMode(this.value)">
+                    <option value="AUTO">🤖 AUTO (Avtopilot)</option>
+                    <option value="SEMI_AUTO">🛡 SEMI-AUTO (Moderatsiya)</option>
+                    <option value="MANUAL">👤 MANUAL (Qo'lda)</option>
+                </select>
+
+                <span id="system-status-badge" style="font-size: 11px; color: var(--accent-emerald); background: rgba(16, 185, 129, 0.1); padding: 5px 12px; border-radius: 20px; border: 1px solid rgba(16, 185, 129, 0.3); font-weight: 600;">
                     🟢 24/7 Avtopilot Faol
                 </span>
                 <a href="/api/reports/export" class="btn btn-outline" download>📥 Excel / CSV Yuklash</a>
@@ -604,6 +611,32 @@
             if (score >= 80) return 'score-good';
             if (score >= 70) return 'score-reserve';
             return 'score-reject';
+        }
+
+        async function changeGovernanceMode(newMode) {
+            try {
+                const res = await fetch('/api/governance', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mode: newMode })
+                });
+                if (res.ok) {
+                    const badge = document.getElementById('system-status-badge');
+                    if (newMode === 'AUTO') {
+                        badge.innerHTML = '🟢 24/7 Avtopilot Faol';
+                        badge.style.color = 'var(--accent-emerald)';
+                    } else if (newMode === 'SEMI_AUTO') {
+                        badge.innerHTML = '🟡 Yarim Avtomat Faol';
+                        badge.style.color = 'var(--accent-amber)';
+                    } else {
+                        badge.innerHTML = '🔵 Qo\'lda Boshqaruv (Manual)';
+                        badge.style.color = 'var(--accent-cyan)';
+                    }
+                    console.log("Boshqaruv rejimi o'zgartirildi:", newMode);
+                }
+            } catch (err) {
+                console.error("Rejimni o'zgartirishda xatolik:", err);
+            }
         }
 
         async function runTestSimulation() {

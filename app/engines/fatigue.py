@@ -50,6 +50,9 @@ class CategoryFatigueEngine:
                 status = "LOW"
                 penalty = 1.0   # Jarimasiz
 
+            # Xavfsiz clamp (0.4 dan 1.0 oralig'ida)
+            penalty = max(0.4, min(1.0, penalty))
+
             return {
                 "category": category_name,
                 "fatigue_score": round(fatigue_score, 1),

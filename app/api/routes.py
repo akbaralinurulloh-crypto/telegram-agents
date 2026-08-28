@@ -61,6 +61,17 @@ async def get_overview():
         }
 
 
+@router.post("/governance")
+async def update_governance_mode(payload: Dict[str, Any]):
+    """Boshqaruv rejimini (AUTO, SEMI_AUTO, MANUAL) dinamik o'zgartirish."""
+    mode = payload.get("mode", "").upper()
+    if mode not in ["AUTO", "SEMI_AUTO", "MANUAL"]:
+        raise HTTPException(status_code=400, detail="Noto'g'ri rejim. Ruxsat etilgan: AUTO, SEMI_AUTO, MANUAL")
+    settings.GOVERNANCE_MODE = mode
+    logger.info(f"⚙️ Boshqaruv rejimi o'zgartirildi: {mode}")
+    return {"status": "SUCCESS", "governance_mode": mode}
+
+
 @router.get("/sources")
 async def list_sources():
     """Barcha manbalar ro'yxati va ularning statistikasi."""
