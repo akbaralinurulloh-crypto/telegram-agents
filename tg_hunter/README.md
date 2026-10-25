@@ -4,7 +4,7 @@ Telegram kontent kuzatuvchi va joylovchi AI agent. Loyiha bosqichma-bosqich quri
 
 ## Holat
 - [x] **Stage 1** — struktura, config, DB (SQLAlchemy + Alembic), Telethon watcher (faqat o'qish)
-- [ ] Stage 2 — dedupe + matn tozalash (raqam, reklama)
+- [x] **Stage 2** — dedupe (matn hash + pHash), matn tozalash (telefon → 88 832 77 00, reklama)
 - [ ] Stage 3 — scorer + captioner + validatorlar
 - [ ] Stage 4 — media tozalash
 - [ ] Stage 5 — publisher (dry-run) + admin buyruqlari

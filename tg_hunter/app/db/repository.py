@@ -6,7 +6,7 @@ from datetime import datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from app.db.models import AuditLog, SourceUnit, UnitMessage, utcnow
+from app.db.models import AuditLog, SourceUnit, UnitHash, UnitMessage, utcnow
 
 
 @dataclass(frozen=True)
@@ -97,3 +97,24 @@ class Repository:
         async with self._sm() as s:
             rows = await s.scalars(select(AuditLog.event).where(AuditLog.unit_id == unit_id).order_by(AuditLog.id))
             return list(rows)
+
+    async def add_hashes(self, unit_id: int, text_hash: str | None, phashes: list[str]) -> None:
+        async with self._sm.begin() as s:
+            if text_hash:
+                s.add(UnitHash(unit_id=unit_id, kind="text", value=text_hash))
+            for ph in dict.fromkeys(phashes):
+                s.add(UnitHash(unit_id=unit_id, kind="phash", value=ph))
+
+    async def find_by_text_hash(self, value: str, exclude_unit_id: int | None = None) -> int | None:
+        async with self._sm() as s:
+            q = select(UnitHash.unit_id).where(UnitHash.kind == "text", UnitHash.value == value)
+            if exclude_unit_id is not None:
+                q = q.where(UnitHash.unit_id != exclude_unit_id)
+            return await s.scalar(q.order_by(UnitHash.unit_id).limit(1))
+
+    async def known_phashes(self, exclude_unit_id: int | None = None) -> list[tuple[int, str]]:
+        async with self._sm() as s:
+            q = select(UnitHash.unit_id, UnitHash.value).where(UnitHash.kind == "phash")
+            if exclude_unit_id is not None:
+                q = q.where(UnitHash.unit_id != exclude_unit_id)
+            return [(u, v) for u, v in (await s.execute(q)).all()]

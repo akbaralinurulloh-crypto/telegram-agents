@@ -61,3 +61,16 @@ class AuditLog(Base):
     event: Mapped[str] = mapped_column(String(64))
     detail: Mapped[dict] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class UnitHash(Base):
+    """Dublikat aniqlash uchun matn hash va media perceptual hash'lari."""
+
+    __tablename__ = "unit_hashes"
+    __table_args__ = (Index("ix_hash_kind_value", "kind", "value"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    unit_id: Mapped[int] = mapped_column(ForeignKey("source_units.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[str] = mapped_column(String(16))  # "text" | "phash"
+    value: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
