@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from app.db.models import AuditLog, SourceUnit, UnitHash, UnitMessage, utcnow
+from app.db.models import KV, AuditLog, ReportLog, SourceUnit, UnitHash, UnitMessage, utcnow
 
 
 @dataclass(frozen=True)
@@ -105,16 +105,117 @@ class Repository:
             for ph in dict.fromkeys(phashes):
                 s.add(UnitHash(unit_id=unit_id, kind="phash", value=ph))
 
+    # Xato yoki qo'lda ko'rishga tushgan postlar nusxalarini to'smaydi (aks holda kontent yo'qolardi).
+    _NON_BLOCKING = ("error", "manual_review")
+
     async def find_by_text_hash(self, value: str, exclude_unit_id: int | None = None) -> int | None:
         async with self._sm() as s:
-            q = select(UnitHash.unit_id).where(UnitHash.kind == "text", UnitHash.value == value)
+            q = (
+                select(UnitHash.unit_id)
+                .join(SourceUnit, SourceUnit.id == UnitHash.unit_id)
+                .where(UnitHash.kind == "text", UnitHash.value == value, SourceUnit.state.not_in(self._NON_BLOCKING))
+            )
             if exclude_unit_id is not None:
                 q = q.where(UnitHash.unit_id != exclude_unit_id)
             return await s.scalar(q.order_by(UnitHash.unit_id).limit(1))
 
     async def known_phashes(self, exclude_unit_id: int | None = None) -> list[tuple[int, str]]:
         async with self._sm() as s:
-            q = select(UnitHash.unit_id, UnitHash.value).where(UnitHash.kind == "phash")
+            q = (
+                select(UnitHash.unit_id, UnitHash.value)
+                .join(SourceUnit, SourceUnit.id == UnitHash.unit_id)
+                .where(UnitHash.kind == "phash", SourceUnit.state.not_in(self._NON_BLOCKING))
+            )
             if exclude_unit_id is not None:
                 q = q.where(UnitHash.unit_id != exclude_unit_id)
             return [(u, v) for u, v in (await s.execute(q)).all()]
+
+    # ---- qarorlar ----
+    async def set_state(self, unit_id: int, state: str) -> None:
+        async with self._sm.begin() as s:
+            u = await s.get(SourceUnit, unit_id)
+            if u:
+                u.state = state
+
+    async def record_decision(
+        self,
+        unit_id: int,
+        state: str,
+        reason: str | None = None,
+        *,
+        score: float | None = None,
+        caption: str | None = None,
+        posted_ids: list[int] | None = None,
+        dry_run: bool = False,
+        detail: dict | None = None,
+    ) -> None:
+        async with self._sm.begin() as s:
+            u = await s.get(SourceUnit, unit_id)
+            if u is None:
+                return
+            u.state, u.decision_reason, u.decided_at, u.dry_run = state, reason, utcnow(), dry_run
+            if score is not None:
+                u.score = score
+            if caption is not None:
+                u.caption = caption
+            if posted_ids is not None:
+                u.posted_ids = posted_ids
+            if detail is not None:
+                u.decision_detail = detail
+            s.add(AuditLog(unit_id=unit_id, event="decision", detail={"state": state, "reason": reason, "score": score, "dry_run": dry_run, **(detail or {})}))
+
+    async def pending_units(self) -> list[SourceUnit]:
+        async with self._sm() as s:
+            q = select(SourceUnit).where(SourceUnit.state.in_(("received", "processing")), SourceUnit.deleted_at.is_(None)).order_by(SourceUnit.id)
+            return list((await s.scalars(q)).all())
+
+    async def units_created_between(self, start: datetime, end: datetime) -> list[SourceUnit]:
+        async with self._sm() as s:
+            q = select(SourceUnit).where(SourceUnit.created_at >= start, SourceUnit.created_at < end).order_by(SourceUnit.id)
+            return list((await s.scalars(q)).all())
+
+    async def last_units(self, n: int) -> list[SourceUnit]:
+        async with self._sm() as s:
+            return list((await s.scalars(select(SourceUnit).order_by(SourceUnit.id.desc()).limit(n))).all())
+
+    async def count_pending(self) -> int:
+        async with self._sm() as s:
+            return int(await s.scalar(select(func.count()).select_from(SourceUnit).where(SourceUnit.state.in_(("received", "processing")), SourceUnit.deleted_at.is_(None))) or 0)
+
+    # ---- ish vaqti sozlamalari ----
+    async def get_kv(self, key: str, default: str | None = None) -> str | None:
+        async with self._sm() as s:
+            row = await s.get(KV, key)
+            return row.value if row else default
+
+    async def set_kv(self, key: str, value: str) -> None:
+        async with self._sm.begin() as s:
+            row = await s.get(KV, key)
+            if row:
+                row.value = value
+            else:
+                s.add(KV(key=key, value=value))
+
+    # ---- hisobotlar ----
+    async def ensure_report(self, period_key: str, kind: str, scheduled_for: datetime) -> ReportLog:
+        scheduled_for = scheduled_for.astimezone(timezone.utc)  # SQLite zonani saqlamaydi: doim UTC
+        async with self._sm.begin() as s:
+            row = await s.scalar(select(ReportLog).where(ReportLog.period_key == period_key))
+            if row is None:
+                row = ReportLog(period_key=period_key, kind=kind, scheduled_for=scheduled_for)
+                s.add(row)
+                await s.flush()
+            return row
+
+    async def save_report_attempt(self, period_key: str, text: str, sent: bool) -> None:
+        async with self._sm.begin() as s:
+            row = await s.scalar(select(ReportLog).where(ReportLog.period_key == period_key))
+            if row:
+                row.attempts += 1
+                row.text = text
+                if sent:
+                    row.sent_at = utcnow()
+
+    async def unsent_reports(self) -> list[ReportLog]:
+        async with self._sm() as s:
+            return list((await s.scalars(select(ReportLog).where(ReportLog.sent_at.is_(None)).order_by(ReportLog.scheduled_for))).all())

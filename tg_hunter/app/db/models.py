@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import JSON, BigInteger, DateTime, ForeignKey, Index, String, Text, UniqueConstraint
+from sqlalchemy import JSON, BigInteger, Boolean, DateTime, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -27,6 +27,13 @@ class SourceUnit(Base):
     media_kinds: Mapped[list] = mapped_column(JSON, default=list)
     source_date: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     state: Mapped[str] = mapped_column(String(32), default="received", index=True)
+    score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    decision_reason: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    decision_detail: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    caption: Mapped[str | None] = mapped_column(Text, nullable=True)
+    posted_ids: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    dry_run: Mapped[bool] = mapped_column(Boolean, default=False)
     edited_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
@@ -74,3 +81,24 @@ class UnitHash(Base):
     kind: Mapped[str] = mapped_column(String(16))  # "text" | "phash"
     value: Mapped[str] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class KV(Base):
+    """Ish vaqtidagi sozlamalar (pauza, dry-run) — qayta ishga tushganda ham saqlanadi."""
+
+    __tablename__ = "kv"
+
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    value: Mapped[str] = mapped_column(Text, default="")
+
+
+class ReportLog(Base):
+    __tablename__ = "report_log"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    period_key: Mapped[str] = mapped_column(String(32), unique=True)  # masalan 2026-10-25@08:00
+    kind: Mapped[str] = mapped_column(String(16))
+    scheduled_for: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    text: Mapped[str] = mapped_column(Text, default="")

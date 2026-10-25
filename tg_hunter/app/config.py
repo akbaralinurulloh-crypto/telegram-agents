@@ -54,9 +54,16 @@ class MediaCfg(BaseModel):
     sample_interval: float = Field(0.5, gt=0)  # videodan kadr olish oralig'i (soniya)
     max_frames: int = Field(120, ge=1)
     max_video_seconds: float = Field(300, gt=0)
-    max_video_mb: float = Field(100, gt=0)
+    max_video_mb: float = Field(45, gt=0)  # Bot API yuklash limiti 50 MB
     max_cover_fraction: float = Field(0.30, gt=0, le=1)  # kadrning shundan ko'p qismini yopish kerak bo'lsa — REJECT
     logo_check: bool = True  # logotip/suv belgisini vizual LLM bilan tekshirish (LLM kvotasini ishlatadi)
+
+
+class PipelineCfg(BaseModel):
+    defer_max_attempts: int = Field(5, ge=1)  # LLM vaqtincha ishlamasa (kvota/503) postni shuncha marta keyinroq qayta urinadi
+    defer_base_minutes: float = Field(2, gt=0)
+    media_dir: str = "data/media"
+    poll_seconds: float = Field(5, gt=0)
 
 
 class AppConfig(BaseModel):
@@ -70,6 +77,7 @@ class AppConfig(BaseModel):
     kill_switch: KillSwitchCfg = KillSwitchCfg()
     llm: LLMCfg = LLMCfg()
     media: MediaCfg = MediaCfg()
+    pipeline: PipelineCfg = PipelineCfg()
 
 
 class Settings(BaseSettings):
@@ -94,6 +102,11 @@ class Settings(BaseSettings):
     @property
     def source_channels(self) -> list[str]:
         return [s.strip() for s in self.source_channels_raw.split(",") if s.strip()]
+
+    def require_bot(self) -> None:
+        missing = [n for n, v in (("BOT_TOKEN", self.bot_token), ("ADMIN_ID", self.admin_id), ("TARGET_CHANNEL", self.target_channel)) if not v]
+        if missing:
+            raise RuntimeError(f".env da to'ldirilmagan: {', '.join(missing)}")
 
     def require_telegram(self) -> None:
         missing = [

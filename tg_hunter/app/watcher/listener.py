@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Awaitable, Callable
+
 from telethon import TelegramClient, events, utils
 
 from app.config import AppConfig, Settings
@@ -30,7 +32,16 @@ def _parse(ref: str) -> int | str:
 class Watcher:
     """Manba kanallarni FAQAT o'qiydi: DB va logga yozadi, hech narsa yubormaydi."""
 
-    def __init__(self, client: TelegramClient, repo: Repository, sources: list[str]):
+    def __init__(
+        self,
+        client: TelegramClient,
+        repo: Repository,
+        sources: list[str],
+        on_new_unit: Callable[[], None] | None = None,
+        notify: Callable[[str], Awaitable[None]] | None = None,
+    ):
+        self.on_new_unit = on_new_unit or (lambda: None)
+        self.notify = notify
         self.client = client
         self.repo = repo
         self.source_refs = sources
@@ -68,6 +79,8 @@ class Watcher:
             media=unit.media_kinds,
             text_preview=unit.text[:80],
         )
+        if created:
+            self.on_new_unit()
 
     async def on_message(self, event) -> None:
         if not self._is_source(event.chat_id) or event.message.grouped_id:
@@ -85,13 +98,22 @@ class Watcher:
         if res is None:
             return
         log.info("unit_edited", unit_id=res.unit.id, text_changed=res.text_changed, state=res.unit.state)
-        if res.unit.state == "posted":
-            log.warning("posted_unit_edited_at_source", unit_id=res.unit.id)  # keyingi bosqichda botga ogohlantirish
+        if res.unit.state in ("posted", "dryrun"):
+            log.warning("posted_unit_edited_at_source", unit_id=res.unit.id)
+            await self._warn(f"✏️ Manba post tahrirlandi (#{res.unit.id}, {res.unit.channel_title}). U allaqachon {'joylangan' if res.unit.state == 'posted' else 'ko`rsatilgan (DRY-RUN)'}: kanaldagi nusxa eskirgan bo'lishi mumkin.")
 
     async def on_delete(self, event) -> None:
         if not self._is_source(event.chat_id):
             return  # kanal o'chirishlarida chat_id keladi; boshqa chatlarni e'tiborsiz qoldiramiz
         for unit in await self.repo.mark_deleted(list(event.deleted_ids), event.chat_id):
             log.info("unit_deleted", unit_id=unit.id, state=unit.state)
-            if unit.state == "posted":
+            if unit.state in ("posted", "dryrun"):
                 log.warning("posted_unit_deleted_at_source", unit_id=unit.id)
+                await self._warn(f"🗑 Manba post o'chirildi (#{unit.id}, {unit.channel_title}). U allaqachon {'joylangan' if unit.state == 'posted' else 'ko`rsatilgan (DRY-RUN)'} — kerak bo'lsa kanaldan qo'lda o'chiring.")
+
+    async def _warn(self, text: str) -> None:
+        if self.notify:
+            try:
+                await self.notify(text)
+            except Exception:
+                log.exception("notify_failed")

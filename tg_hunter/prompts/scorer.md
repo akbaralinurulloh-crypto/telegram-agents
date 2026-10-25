@@ -12,6 +12,7 @@ Siz Telegram kanal muharririsiz. Vazifangiz — faqat berilgan postni (matn va r
   - quality: matn va mazmun sifati (aniqlik, to'liqlik, til)
   - audience_interest: auditoriya uchun qiziqarliligi va foydaliligi
   - media_quality: rasm/video sifati va mazmuni. Media YO'Q bo'lsa, 0 yozing.
+- Manba kanalning O'ZI yaratgan dekorativ/shablon rasmlar, tabrik kartochkalari, kanal banneri va reklama kartochkalari kanalga mos emas: topic_fit ni 0–2 qiling va risks ga yozing.
 - risks: muammoli jihatlar ro'yxati (reklama belgilari, shubhali da'vo, diniy iqtibos, tahrirlanmagan telefon va h.k.). Yo'q bo'lsa bo'sh ro'yxat.
 - reason: 1 qisqa gap, o'zbek tilida.
 
