@@ -2,7 +2,14 @@ timezone: Asia/Tashkent
 report_times: ["08:00", "13:00", "20:00"]
 
 channel_topic: |
-  TODO: kanal mavzusi ta'rifi (baholash uchun aniq tavsif shu yerga yoziladi).
+  QORALAMA (kanallarning nomidan taxmin qilingan; tasdiqlang yoki tahrir qiling):
+  Kanal: @muhtashamtraveluzz — umra, haj va ziyorat safarlari haqida.
+  Yaxshi post: umra/haj/ziyorat bo'yicha foydali ma'lumot (qoidalar, hujjatlar, vizalar, yo'l-yo'riq,
+  Makka/Madina haqida amaliy maslahat), safar tajribasi, ziyorat joylari tasviri, safar tayyorgarligi,
+  yangiliklar (parvozlar, viza qoidalari o'zgarishi), sifatli rasm va videolar.
+  Yomon post: safarga aloqasi yo'q kontent, boshqa kompaniyalarning reklamasi va narxlari,
+  siyosat, tasdiqlanmagan mish-mish, sifatsiz yoki takroriy media, boshqa kanalga chaqiruv.
+  Auditoriya: umra va ziyoratga borishni rejalashtirayotgan yoki borib kelgan o'zbek tilli odamlar.
 
 scoring:
   min_score: 7.0
