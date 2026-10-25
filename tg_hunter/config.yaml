@@ -1,0 +1,41 @@
+timezone: Asia/Tashkent
+report_times: ["08:00", "13:00", "20:00"]
+
+channel_topic: |
+  TODO: kanal mavzusi ta'rifi (baholash uchun aniq tavsif shu yerga yoziladi).
+
+scoring:
+  min_score: 7.0
+  weights:            # yig'indisi 1.0 bo'lishi shart
+    topic_fit: 0.30
+    quality: 0.25
+    audience_interest: 0.25
+    media_quality: 0.20
+
+watcher:
+  catch_up: true      # o'chiq turgan vaqtdagi xabarlarni ham olish (Telethon catch_up)
+
+caption:
+  max_length: 1024
+  max_attempts: 2
+
+# Q2: izohda bo'lmasligi shart bo'lgan kalit so'zlar (kichik harf, lotin+kirill)
+banned_caption_keywords:
+  - hadis
+  - hadith
+  - rivoyat
+  - sahih
+  - sanad
+  - s.a.v
+  - alayhissalom
+  - payg'ambar
+  - paygambar
+  - хадис
+  - ривоят
+  - саҳиҳ
+  - санад
+  - алайҳиссалом
+  - пайғамбар
+
+kill_switch:
+  max_consecutive_errors: 5
