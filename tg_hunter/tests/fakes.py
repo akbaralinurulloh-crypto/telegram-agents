@@ -6,8 +6,8 @@ from app.llm.base import LLMError
 class FakeLLM:
     """Rolga (prompt boshidagi `# ROLE: X`) qarab navbatdagi javobni qaytaradi. Chaqiruvlar `calls` da."""
 
-    def __init__(self, scorer=(), captioner=(), validator=()):
-        self.queues = {"SCORER": list(scorer), "CAPTIONER": list(captioner), "VALIDATOR": list(validator)}
+    def __init__(self, scorer=(), captioner=(), validator=(), branding=()):
+        self.queues = {"SCORER": list(scorer), "CAPTIONER": list(captioner), "VALIDATOR": list(validator), "BRANDING": list(branding)}
         self.calls: list[dict] = []
 
     async def generate_json(self, *, system, user, images=()):

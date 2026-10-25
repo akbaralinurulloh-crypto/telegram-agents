@@ -57,6 +57,14 @@ class PhoneResult:
     uncertain: list[str] = field(default_factory=list)
 
 
+@dataclass
+class PhoneAnalysis:
+    """Asl matndagi [start, end) pozitsiyalar: topilgan raqamlar va ishonchsiz raqamsimon qatorlar."""
+
+    phones: list[tuple[int, int]] = field(default_factory=list)
+    uncertain: list[tuple[int, int, str]] = field(default_factory=list)
+
+
 def _normalize(text: str) -> tuple[str, list[tuple[int, int]]]:
     """Keycap/unicode raqamlarni oddiy raqamga aylantiradi; har belgi uchun asl (start, end) ni saqlaydi."""
     out: list[str] = []
@@ -64,8 +72,8 @@ def _normalize(text: str) -> tuple[str, list[tuple[int, int]]]:
     i, n = 0, len(text)
     while i < n:
         ch = text[i]
-        if ch in "0123456789" and text[i + 1 : i + 3] in ("️⃣", "⃣"):
-            j = i + 3 if text[i + 1] == "️" else i + 2
+        if ch in "0123456789" and text[i + 1 : i + 3] in ("\ufe0f\u20e3", "\u20e3"):
+            j = i + 3 if text[i + 1] == "\ufe0f" else i + 2
             out.append(ch)
             spans.append((i, j))
             i = j
@@ -97,40 +105,45 @@ def _looks_like_price_grouping(matched: str) -> bool:
     return bool(re.fullmatch(r"\d{3}([ .]000){2}", matched.strip()))
 
 
-def replace_phones(text: str, replacement: str = REPLACEMENT) -> PhoneResult:
+def analyze_phones(text: str, replacement: str = REPLACEMENT) -> PhoneAnalysis:
     if not text:
-        return PhoneResult(text)
+        return PhoneAnalysis()
     norm, spans = _normalize(text)
     masked = list(norm)
-    edits: list[tuple[int, int]] = []
     already_target = _digits(replacement)
+    out = PhoneAnalysis()
 
     for m in _PHONE_RE.finditer(norm):
         start, end = m.start(), m.end()
         kind = m.lastgroup
         matched = m.group()
+        masked[start:end] = " " * (end - start)
         if _digits(matched) in (already_target, _TARGET_DIGITS, "998" + already_target):
-            masked[start:end] = " " * (end - start)
             continue
         if kind in ("local", "ru") and (_is_price_or_id(norm, start, end) or _looks_like_price_grouping(matched)):
-            masked[start:end] = " " * (end - start)
             continue
-        masked[start:end] = " " * (end - start)
-        edits.append((spans[start][0], spans[end - 1][1]))
-
-    result = text
-    for s, e in reversed(edits):
-        result = result[:s] + replacement + result[e:]
+        out.phones.append((spans[start][0], spans[end - 1][1]))
 
     for m in _NON_PHONE_RE.finditer("".join(masked)):
         masked[m.start() : m.end()] = " " * (m.end() - m.start())
     rest = "".join(masked)
-    uncertain: list[str] = []
+    seen: set[tuple[int, int]] = set()
     for m in _UNCERTAIN_RE.finditer(rest):
         if not _is_price_or_id(rest, m.start(), m.end()):
-            uncertain.append(norm[m.start() : m.end()])
+            seen.add((m.start(), m.end()))
     for m in _KEYWORD_RE.finditer(rest):
-        snippet = norm[m.start("num") : m.end("num")]
-        if snippet not in uncertain and not _is_price_or_id(rest, m.start("num"), m.end("num")):
-            uncertain.append(snippet)
-    return PhoneResult(result, len(edits), uncertain)
+        if (m.start("num"), m.end("num")) not in seen and not _is_price_or_id(rest, m.start("num"), m.end("num")):
+            seen.add((m.start("num"), m.end("num")))
+    for s, e in sorted(seen):
+        out.uncertain.append((spans[s][0], spans[e - 1][1], norm[s:e]))
+    return out
+
+
+def replace_phones(text: str, replacement: str = REPLACEMENT) -> PhoneResult:
+    if not text:
+        return PhoneResult(text)
+    a = analyze_phones(text, replacement)
+    result = text
+    for s, e in reversed(a.phones):
+        result = result[:s] + replacement + result[e:]
+    return PhoneResult(result, len(a.phones), [u[2] for u in a.uncertain])

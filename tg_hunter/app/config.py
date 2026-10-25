@@ -50,6 +50,15 @@ class LLMCfg(BaseModel):
     max_retries: int = Field(3, ge=0)
 
 
+class MediaCfg(BaseModel):
+    sample_interval: float = Field(0.5, gt=0)  # videodan kadr olish oralig'i (soniya)
+    max_frames: int = Field(120, ge=1)
+    max_video_seconds: float = Field(300, gt=0)
+    max_video_mb: float = Field(100, gt=0)
+    max_cover_fraction: float = Field(0.30, gt=0, le=1)  # kadrning shundan ko'p qismini yopish kerak bo'lsa — REJECT
+    logo_check: bool = True  # logotip/suv belgisini vizual LLM bilan tekshirish (LLM kvotasini ishlatadi)
+
+
 class AppConfig(BaseModel):
     timezone: str = "Asia/Tashkent"
     report_times: list[str] = ["08:00", "13:00", "20:00"]
@@ -60,6 +69,7 @@ class AppConfig(BaseModel):
     banned_caption_keywords: list[str] = []
     kill_switch: KillSwitchCfg = KillSwitchCfg()
     llm: LLMCfg = LLMCfg()
+    media: MediaCfg = MediaCfg()
 
 
 class Settings(BaseSettings):

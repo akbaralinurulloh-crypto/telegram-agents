@@ -55,3 +55,11 @@ llm:
   max_images: 6               # bitta so'rovga maks. rasm/kadr soni
   timeout_seconds: 90
   max_retries: 3
+
+media:
+  sample_interval: 0.5        # video: har necha soniyada kadr OCR qilinadi
+  max_frames: 120
+  max_video_seconds: 300
+  max_video_mb: 100
+  max_cover_fraction: 0.30    # kadrning shundan ko'p qismini yopish kerak bo'lsa post rad etiladi
+  logo_check: true            # logotip/suv belgisi (vizual LLM). Kvotani tejash uchun false qilish mumkin, lekin logolar o'tib ketadi
