@@ -40,6 +40,16 @@ class KillSwitchCfg(BaseModel):
     max_consecutive_errors: int = Field(5, ge=1)
 
 
+class LLMCfg(BaseModel):
+    provider: str = Field("gemini", pattern="^(gemini|anthropic)$")
+    gemini_model: str = "gemini-3.5-flash"
+    gemini_fallback_models: list[str] = ["gemini-3.8-flash", "gemini-flash-latest"]
+    anthropic_model: str = "claude-sonnet-5-5"
+    max_images: int = Field(6, ge=0, le=20)
+    timeout_seconds: float = Field(90, gt=0)
+    max_retries: int = Field(3, ge=0)
+
+
 class AppConfig(BaseModel):
     timezone: str = "Asia/Tashkent"
     report_times: list[str] = ["08:00", "13:00", "20:00"]
@@ -49,6 +59,7 @@ class AppConfig(BaseModel):
     caption: CaptionCfg = CaptionCfg()
     banned_caption_keywords: list[str] = []
     kill_switch: KillSwitchCfg = KillSwitchCfg()
+    llm: LLMCfg = LLMCfg()
 
 
 class Settings(BaseSettings):
@@ -64,6 +75,7 @@ class Settings(BaseSettings):
     target_channel: str | None = None
     source_channels_raw: str = Field("", alias="SOURCE_CHANNELS")
     anthropic_api_key: str | None = None
+    gemini_api_key: str | None = None
     database_url: str = "sqlite+aiosqlite:///data/hunter.db"
     dry_run: bool = True
     config_path: str = "config.yaml"

@@ -39,3 +39,12 @@ banned_caption_keywords:
 
 kill_switch:
   max_consecutive_errors: 5
+
+llm:
+  provider: gemini            # gemini | anthropic
+  gemini_model: gemini-3.5-flash
+  gemini_fallback_models: [gemini-3.8-flash, gemini-flash-latest]   # asosiy model band bo'lsa shularga o'tadi
+  anthropic_model: claude-sonnet-5-5
+  max_images: 6               # bitta so'rovga maks. rasm/kadr soni
+  timeout_seconds: 90
+  max_retries: 3
