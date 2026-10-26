@@ -1,0 +1,12 @@
+services:
+  hunter:
+    build: .
+    env_file: .env
+    environment:
+      TG_SESSION_PATH: data/hunter.session
+      DATABASE_URL: sqlite+aiosqlite:///data/hunter.db
+    volumes:
+      - ./data:/app/data            # session, baza, vaqtinchalik media
+      - ./config.yaml:/app/config.yaml:ro
+    restart: unless-stopped
+    stop_grace_period: 30s

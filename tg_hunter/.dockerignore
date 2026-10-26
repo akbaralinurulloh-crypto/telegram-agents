@@ -1,0 +1,7 @@
+.env
+data/
+tmp/
+__pycache__/
+.pytest_cache/
+*.session
+.git

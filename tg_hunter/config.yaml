@@ -1,0 +1,71 @@
+timezone: Asia/Tashkent
+report_times: ["08:00", "13:00", "20:00"]
+
+channel_topic: |
+  QORALAMA (kanallarning nomidan taxmin qilingan; tasdiqlang yoki tahrir qiling):
+  Kanal: @muhtashamtraveluzz — umra, haj va ziyorat safarlari haqida.
+  Yaxshi post: umra/haj/ziyorat bo'yicha foydali ma'lumot (qoidalar, hujjatlar, vizalar, yo'l-yo'riq,
+  Makka/Madina haqida amaliy maslahat), safar tajribasi, ziyorat joylari tasviri, safar tayyorgarligi,
+  yangiliklar (parvozlar, viza qoidalari o'zgarishi), sifatli rasm va videolar.
+  Yomon post: safarga aloqasi yo'q kontent, boshqa kompaniyalarning reklamasi va narxlari,
+  siyosat, tasdiqlanmagan mish-mish, sifatsiz yoki takroriy media, boshqa kanalga chaqiruv.
+  Auditoriya: umra va ziyoratga borishni rejalashtirayotgan yoki borib kelgan o'zbek tilli odamlar.
+
+scoring:
+  min_score: 7.0
+  weights:            # yig'indisi 1.0 bo'lishi shart
+    topic_fit: 0.30
+    quality: 0.25
+    audience_interest: 0.25
+    media_quality: 0.20
+
+watcher:
+  catch_up: true      # o'chiq turgan vaqtdagi xabarlarni ham olish (Telethon catch_up)
+
+caption:
+  max_length: 1024
+  max_attempts: 2
+
+# Q2: izohda bo'lmasligi shart bo'lgan kalit so'zlar (kichik harf, lotin+kirill)
+banned_caption_keywords:
+  - hadis
+  - hadith
+  - rivoyat
+  - sahih
+  - sanad
+  - s.a.v
+  - alayhissalom
+  - payg'ambar
+  - paygambar
+  - хадис
+  - ривоят
+  - саҳиҳ
+  - санад
+  - алайҳиссалом
+  - пайғамбар
+
+kill_switch:
+  max_consecutive_errors: 5
+
+llm:
+  provider: gemini            # gemini | anthropic
+  gemini_model: gemini-3.5-flash
+  gemini_fallback_models: [gemini-3.8-flash, gemini-flash-latest]   # asosiy model band bo'lsa shularga o'tadi
+  anthropic_model: claude-sonnet-5-5
+  max_images: 6               # bitta so'rovga maks. rasm/kadr soni
+  timeout_seconds: 90
+  max_retries: 3
+
+media:
+  sample_interval: 0.5        # video: har necha soniyada kadr OCR qilinadi
+  max_frames: 120
+  max_video_seconds: 300
+  max_video_mb: 45            # Telegram Bot API 50 MB dan kattasini yubora olmaydi
+  max_cover_fraction: 0.30    # kadrning shundan ko'p qismini yopish kerak bo'lsa post rad etiladi
+  logo_check: true            # logotip/suv belgisi (vizual LLM). Kvotani tejash uchun false qilish mumkin, lekin logolar o'tib ketadi
+
+pipeline:
+  defer_max_attempts: 5       # LLM vaqtincha ishlamasa (kvota/503): shuncha marta keyinroq qayta uriniladi
+  defer_base_minutes: 2       # kutish: 2, 4, 8, 16 daqiqa...
+  media_dir: data/media
+  poll_seconds: 5
