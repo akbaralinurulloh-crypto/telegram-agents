@@ -24,6 +24,15 @@ Matn-only postlar o'zgartirilgan (tozalangan) holda izohsiz joylanadi. Media pos
 6. Tekshiruv: `docker compose run --rm hunter python -m scripts.check --online`
 7. Ishga tushirish: `docker compose up -d --build`. Loglar: `docker compose logs -f`.
 
+### Serverda (24/7, tavsiya)
+Ubuntu 22.04/24.04, kamida 2 vCPU / 4 GB RAM. Serverda root sifatida:
+```
+curl -fsSL https://raw.githubusercontent.com/akbaralinurulloh-crypto/telegram-agents/main/tg_hunter/deploy/setup.sh -o setup.sh   # private repo: skriptni qo'lda nusxalang
+bash setup.sh      # Docker, swap, devor, GitHub deploy kaliti; kalit so'ralsa — GitHub'ga qo'shib, qayta ishga tushiring
+```
+Keyin skript chiqargan 6 qadamni bajaring. Yangilash: `bash deploy/update.sh`.
+Avtomatik deploy (ixtiyoriy): `.github/workflows/deploy.yml` — repo Variables'da `DEPLOY_ENABLED=true` va Secrets: `SERVER_HOST`, `SERVER_USER`, `SERVER_SSH_KEY`.
+
 ### Docker'siz (Linux/macOS/WSL)
 ```
 sudo apt install ffmpeg tesseract-ocr tesseract-ocr-eng tesseract-ocr-rus tesseract-ocr-uzb
