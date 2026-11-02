@@ -217,3 +217,32 @@ def clean_video(
             if not verified:
                 return VideoResult("manual_review", out_path, reason="new_number_unverified", changed=True, regions=regions, new_number_verified=False)
         return VideoResult("ok", out_path, changed=True, regions=regions, new_number_verified=verified)
+
+
+def compress_to_fit(src: Path, dst: Path, max_bytes: int, audio_kbps: int = 96, attempts: int = 3) -> Path | None:
+    """Videoni `max_bytes` ga sig'adigan qilib qayta kodlaydi. Natija katta chiqsa bitrate kamaytirilib qayta uriniladi.
+    Sig'dirib bo'lmasa (juda uzun/katta, sifat yaroqsiz bo'lardi) — None."""
+    if src.stat().st_size <= max_bytes:
+        return src
+    info = probe(src)
+    dur = max(info.duration, 1.0)
+    v_kbps = int(max_bytes * 8 * 0.85 / dur / 1000 - (audio_kbps if info.has_audio else 0))
+    for _ in range(attempts):
+        if v_kbps < 150:  # bundan past bitrate'da tasvir yaroqsiz bo'ladi
+            break
+        width = 1280 if v_kbps >= 1200 else 854 if v_kbps >= 500 else 640
+        cmd = [
+            "ffmpeg", "-v", "error", "-y", "-i", str(src),
+            "-vf", f"scale='min({width},iw)':-2", "-c:v", "libx264", "-preset", "veryfast",
+            "-b:v", f"{v_kbps}k", "-maxrate", f"{int(v_kbps * 1.15)}k", "-bufsize", f"{v_kbps * 2}k", "-pix_fmt", "yuv420p",
+            *(["-c:a", "aac", "-b:a", f"{audio_kbps}k"] if info.has_audio else ["-an"]),
+            "-movflags", "+faststart", str(dst),
+        ]
+        if _run(cmd, timeout=1800).returncode != 0 or not dst.exists():
+            break
+        size = dst.stat().st_size
+        if size <= max_bytes:
+            return dst
+        v_kbps = int(v_kbps * max_bytes / size * 0.9)  # katta chiqdi: proporsional kamaytirib qayta urinamiz
+    dst.unlink(missing_ok=True)
+    return None

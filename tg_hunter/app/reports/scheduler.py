@@ -15,6 +15,30 @@ from app.utils.logging import get_logger
 
 log = get_logger("reports")
 TG_LIMIT = 4000
+HEARTBEAT_KEY = "last_seen"
+
+
+async def heartbeat(repo: Repository) -> None:
+    await repo.set_kv(HEARTBEAT_KEY, datetime.now(timezone.utc).isoformat())
+
+
+async def downtime_notice(repo: Repository, now: datetime, tz: ZoneInfo, min_minutes: float = 10) -> str | None:
+    """Oxirgi faollikdan beri `min_minutes` dan ko'p o'tgan bo'lsa — ishga tushganda ogohlantirish matni."""
+    raw = await repo.get_kv(HEARTBEAT_KEY)
+    if not raw:
+        return None
+    last = datetime.fromisoformat(raw)
+    last = last if last.tzinfo else last.replace(tzinfo=timezone.utc)
+    gap = now.astimezone(timezone.utc) - last
+    if gap.total_seconds() < min_minutes * 60:
+        return None
+    h = gap.total_seconds() / 3600
+    span = f"{h / 24:.1f} kun" if h >= 48 else f"{h:.1f} soat" if h >= 1 else f"{int(gap.total_seconds() // 60)} daqiqa"
+    return (
+        f"⚠️ Agent {span} davomida ishlamagan edi (oxirgi faollik: {last.astimezone(tz).strftime('%d.%m %H:%M')}).\n"
+        "Shu vaqtda kelgan postlar va rejalashtirilgan hisobotlar o'tkazib yuborilgan bo'lishi mumkin.\n"
+        "Sabab: kompyuter o'chiq/uyquda yoki Docker to'xtagan. Uzluksiz ishlash uchun VPS kerak."
+    )
 
 
 def chunks(text: str, limit: int = TG_LIMIT) -> list[str]:
@@ -93,5 +117,6 @@ class ReportService:
             h, m = slot.split(":")
             sch.add_job(self.run_slot, CronTrigger(hour=int(h), minute=int(m), timezone=self.tz), args=[slot], id=f"report_{slot}", misfire_grace_time=3600, coalesce=True)
         sch.add_job(self.retry_unsent, "interval", minutes=10, id="report_retry", coalesce=True)
+        sch.add_job(heartbeat, "interval", minutes=1, args=[self.repo], id="heartbeat", coalesce=True)
         sch.start()
         return sch

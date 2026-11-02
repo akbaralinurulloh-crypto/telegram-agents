@@ -54,7 +54,8 @@ class MediaCfg(BaseModel):
     sample_interval: float = Field(0.5, gt=0)  # videodan kadr olish oralig'i (soniya)
     max_frames: int = Field(120, ge=1)
     max_video_seconds: float = Field(300, gt=0)
-    max_video_mb: float = Field(45, gt=0)  # Bot API yuklash limiti 50 MB
+    max_video_mb: float = Field(45, gt=0)  # Bot API yuborish limiti 50 MB: kattaroq video shu hajmgacha SIQILADI
+    max_download_mb: float = Field(300, gt=0)  # manbadan shundan katta videoni yuklamaymiz (rad etiladi)
     max_cover_fraction: float = Field(0.30, gt=0, le=1)  # kadrning shundan ko'p qismini yopish kerak bo'lsa — REJECT
     logo_check: bool = True  # logotip/suv belgisini vizual LLM bilan tekshirish (LLM kvotasini ishlatadi)
 
@@ -64,6 +65,8 @@ class PipelineCfg(BaseModel):
     defer_base_minutes: float = Field(2, gt=0)
     media_dir: str = "data/media"
     poll_seconds: float = Field(5, gt=0)
+    notify_rejects_in_dryrun: bool = True  # DRY-RUN da rad etilgan postlar sababini ham adminga ko'rsatadi
+    downtime_notice_minutes: float = Field(10, gt=0)  # shundan uzoq o'chiq turgan bo'lsa, ishga tushganda ogohlantiradi
 
 
 class AppConfig(BaseModel):

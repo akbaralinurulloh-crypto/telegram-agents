@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import signal
+from datetime import datetime, timezone
 
 from aiogram import Bot
 
@@ -13,7 +14,7 @@ from app.llm.factory import build_llm
 from app.media_telethon import TelethonMedia
 from app.pipeline.publisher import AiogramPublisher
 from app.pipeline.runner import Pipeline
-from app.reports.scheduler import ReportService
+from app.reports.scheduler import ReportService, downtime_notice, heartbeat
 from app.utils.logging import get_logger, setup_logging
 from app.watcher.listener import Watcher, build_client
 
@@ -62,11 +63,15 @@ async def run() -> None:
         repo, notify, slots=cfg.report_times, tz=cfg.timezone, target=target, sources=settings.source_channels,
         connected=client.is_connected, dry_run_default=settings.dry_run,
     )
+    gap_text = await downtime_notice(repo, datetime.now(timezone.utc), reports.tz, cfg.pipeline.downtime_notice_minutes)
+    await heartbeat(repo)
     scheduler = reports.start()
 
     log.info("started", dry_run=settings.dry_run, sources=len(watcher.source_ids), provider=cfg.llm.provider)
     try:
         await notify(f"🟢 TG Hunter ishga tushdi.\n{await status()}\n\nBirinchi ishga tushirish DRY-RUN da: postlar kanalga emas, sizga ko'rsatiladi. Jonli rejim: /dryrun off")
+        if gap_text:
+            await notify(gap_text)
     except Exception as exc:  # admin botga hali /start yozmagan bo'lishi mumkin
         log.warning("startup_notice_failed", error=str(exc)[:120], hint="Botga Telegramda /start yozing")
 

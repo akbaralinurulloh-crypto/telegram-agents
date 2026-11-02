@@ -25,7 +25,7 @@ from app.pipeline.ocr import OCREngine, default_engines
 from app.pipeline.publisher import MediaItem, Publisher, build_plan, message_link
 from app.pipeline.scorer import ScoringError, score_unit
 from app.pipeline.text_clean import clean_text
-from app.pipeline.video_clean import clean_video, sample_frames
+from app.pipeline.video_clean import clean_video, compress_to_fit, sample_frames
 from app.utils.logging import get_logger
 
 log = get_logger("pipeline")
@@ -143,8 +143,10 @@ class Pipeline:
             await self._run(unit, tmp)
             await self._ok_streak()
         except Rejected as r:
-            await self.repo.record_decision(unit_id, r.state, r.reason, score=r.detail.pop("score", None), detail=r.detail or None)
+            score = r.detail.pop("score", None)
+            await self.repo.record_decision(unit_id, r.state, r.reason, score=score, detail=r.detail or None)
             log.info("decision", unit_id=unit_id, state=r.state, reason=r.reason)
+            await self._tell_reject(unit, r, score)
             await self._ok_streak()
         except Transient as exc:
             await self._defer(unit_id, str(exc))
@@ -154,6 +156,18 @@ class Pipeline:
             await self._count_error()
         finally:
             shutil.rmtree(tmp, ignore_errors=True)  # vaqtinchalik media o'chiriladi
+
+    async def _tell_reject(self, unit: SourceUnit, r: "Rejected", score: float | None) -> None:
+        """DRY-RUN davrida rad etilgan postlar ham ko'rinsin (aks holda agent 'jim' tuyuladi)."""
+        if not self.cfg.pipeline.notify_rejects_in_dryrun or not await is_dry_run(self.repo, self.dry_run_default):
+            return
+        icon = "🔎" if r.state == "manual_review" else "❌"
+        preview = (unit.text or "(media)")[:60].replace("\n", " ")
+        extra = f" | ball {score:.1f}" if score is not None else ""
+        try:
+            await self.notify(f"{icon} #{unit.id} {unit.channel_title}: {r.reason}{extra}\n{preview!r}")
+        except Exception:
+            log.exception("reject_notify_failed")
 
     def _media_dir(self) -> Path:
         d = Path(self.cfg.pipeline.media_dir)
@@ -177,7 +191,7 @@ class Pipeline:
         text = tc.text
 
         # 3. media yuklash va dublikat (rasm)
-        files = await self.media.download(unit, tmp, int(cfg.media.max_video_mb * 1024 * 1024)) if unit.media_kinds else []
+        files = await self.media.download(unit, tmp, int(cfg.media.max_download_mb * 1024 * 1024)) if unit.media_kinds else []
         photos = [_open(f.path) for f in files if f.kind == "photo"]
         videos = [f for f in files if f.kind == "video"]
         keyframes: list[Image.Image] = []
@@ -271,19 +285,26 @@ class Pipeline:
         r = await asyncio.to_thread(
             clean_video, f.path, tmp / f"clean_{idx}.mp4", self.engines or default_engines(),
             sample_interval=m.sample_interval, max_frames=m.max_frames, max_seconds=m.max_video_seconds,
-            max_mb=m.max_video_mb, max_cover_fraction=m.max_cover_fraction,
+            max_mb=m.max_download_mb, max_cover_fraction=m.max_cover_fraction,
         )
         if r.status != "ok":
             raise Rejected("rejected" if r.status == "reject" else "manual_review", r.reason or "video_clean", score=score)
+        final = r.path
+        cap = int(m.max_video_mb * 1024 * 1024)
+        if final.stat().st_size > cap:  # Bot API 50 MB dan kattasini yubora olmaydi: rad etmasdan siqamiz
+            fitted = await asyncio.to_thread(compress_to_fit, final, tmp / f"fit_{idx}.mp4", cap)
+            if fitted is None:
+                raise Rejected("rejected", "media_too_large", score=score, size_mb=round(final.stat().st_size / 1048576, 1))
+            final = fitted
         if m.logo_check:  # videoda logotipni qoplamaymiz: aniqlansa — qo'lda ko'rib chiqish (fail-closed)
-            frames = await asyncio.to_thread(self._keyframes, r.path, tmp)
+            frames = await asyncio.to_thread(self._keyframes, final, tmp)
             try:
                 flag, _ = await detect_branding(self.llm, frames[:3])
             except Exception as exc:
                 raise Transient(f"video branding: {exc}") from exc
             if flag is not False:
                 raise Rejected("manual_review", "video_branding_detected", score=score)
-        return MediaItem(r.path, "video")
+        return MediaItem(final, "video")
 
     # ---------- xatolar, kill switch ----------
     async def _defer(self, unit_id: int, why: str) -> None:
