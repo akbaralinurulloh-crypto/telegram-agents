@@ -47,7 +47,7 @@ async def run() -> None:
         repo, llm, cfg, AiogramPublisher(bot), TelethonMedia(client),
         target=target, admin_id=admin_id, dry_run_default=settings.dry_run, notify=notify,
     )
-    watcher = Watcher(client, repo, settings.source_channels, on_new_unit=pipeline.wake, notify=notify)
+    watcher = Watcher(client, repo, settings.source_channels, on_new_unit=pipeline.wake, notify=notify, include_groups=cfg.watcher.include_groups)
     await watcher.resolve_sources()
     watcher.register()
 
@@ -62,7 +62,7 @@ async def run() -> None:
         repo, notify, slots=cfg.report_times, tz=cfg.timezone, target=target, sources=settings.source_channels,
         connected=client.is_connected, dry_run_default=settings.dry_run,
     )
-    dp = build_dispatcher(admin_id, AdminContext(repo, settings.source_channels, target, status, report_fn=reports.preview_now))
+    dp = build_dispatcher(admin_id, AdminContext(repo, settings.source_channels, target, status, report_fn=reports.preview_now, sources_fn=watcher.describe))
     gap_text = await downtime_notice(repo, datetime.now(timezone.utc), reports.tz, cfg.pipeline.downtime_notice_minutes)
     await repo.set_kv("started_at", datetime.now(timezone.utc).isoformat())
     await heartbeat(repo)
@@ -73,6 +73,12 @@ async def run() -> None:
         await notify(f"🟢 TG Hunter ishga tushdi.\n{await status()}\n\nBirinchi ishga tushirish DRY-RUN da: postlar kanalga emas, sizga ko'rsatiladi. Jonli rejim: /dryrun off")
         if gap_text:
             await notify(gap_text)
+        if watcher.ignored_groups():
+            await notify(
+                "⚠️ Quyidagi manba KANAL emas, GURUH: " + "; ".join(watcher.ignored_groups()) + "\n"
+                "Guruhdagi a'zolar yozishmalari qayta ishlanmaydi (maxfiylik va keraksiz shovqinni oldini olish uchun).\n"
+                "Agar aynan shu guruhdagi postlar kerak bo'lsa, config.yaml da `watcher: include_groups: true` qiling."
+            )
     except Exception as exc:  # admin botga hali /start yozmagan bo'lishi mumkin
         log.warning("startup_notice_failed", error=str(exc)[:120], hint="Botga Telegramda /start yozing")
 

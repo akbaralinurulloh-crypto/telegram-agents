@@ -29,6 +29,7 @@ class ScoringCfg(BaseModel):
 
 class WatcherCfg(BaseModel):
     catch_up: bool = True
+    include_groups: bool = False  # manba GURUH bo'lsa (a'zolar yozishmasi) — sukut bo'yicha o'tkazib yuboriladi
 
 
 class CaptionCfg(BaseModel):
@@ -65,6 +66,7 @@ class PipelineCfg(BaseModel):
     defer_base_minutes: float = Field(2, gt=0)
     media_dir: str = "data/media"
     poll_seconds: float = Field(5, gt=0)
+    max_reject_notices_per_hour: int = Field(15, ge=1)  # DRY-RUN rad xabarlari soat uchun chegarasi (spamdan himoya)
     notify_rejects_in_dryrun: bool = True  # DRY-RUN da rad etilgan postlar sababini ham adminga ko'rsatadi
     downtime_notice_minutes: float = Field(10, gt=0)  # shundan uzoq o'chiq turgan bo'lsa, ishga tushganda ogohlantiradi
 

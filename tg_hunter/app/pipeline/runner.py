@@ -94,6 +94,7 @@ class Pipeline:
         self.engines = engines
         self._now = now
         self._wake = asyncio.Event()
+        self._notice_times: list[datetime] = []
         self._deferred: dict[int, tuple[int, datetime]] = {}  # unit_id -> (urinish, shu vaqtgacha kutish)
         self.running = True
 
@@ -161,6 +162,13 @@ class Pipeline:
         """DRY-RUN davrida rad etilgan postlar ham ko'rinsin (aks holda agent 'jim' tuyuladi)."""
         if not self.cfg.pipeline.notify_rejects_in_dryrun or not await is_dry_run(self.repo, self.dry_run_default):
             return
+        if not unit.media_kinds and len((unit.text or "").strip()) < 40:
+            return  # qisqa yozishma (salom, rahmat ...) — shovqin, adminga ko'rsatmaymiz
+        now = self._now()
+        self._notice_times = [t for t in self._notice_times if now - t < timedelta(hours=1)]
+        if len(self._notice_times) >= self.cfg.pipeline.max_reject_notices_per_hour:
+            return  # soatlik chegara: spam bo'lmasin (hisobotda baribir hisoblanadi)
+        self._notice_times.append(now)
         icon = "🔎" if r.state == "manual_review" else "❌"
         preview = (unit.text or "(media)")[:60].replace("\n", " ")
         extra = f" | ball {score:.1f}" if score is not None else ""

@@ -24,6 +24,7 @@ class AdminContext:
     target: str
     status_fn: "callable"  # async () -> str
     report_fn: Callable[[], Awaitable[str]] | None = None  # async () -> hisobot matni
+    sources_fn: Callable[[], list[str]] | None = None  # manbalar tavsifi (tur bilan)
 
 
 async def is_paused(repo: Repository) -> bool:
@@ -62,7 +63,8 @@ async def handle_command(cmd: str, args: list[str], ctx: AdminContext) -> str:
         await ctx.repo.audit("admin_dryrun", on=on)
         return "🧪 DRY-RUN yoqildi: kanalga joylanmaydi, faqat sizga ko'rsatiladi." if on else f"🔴 JONLI rejim: postlar {ctx.target} ga joylanadi."
     if cmd == "sources":
-        return "Manba kanallar:\n" + "\n".join(f"• {s}" for s in ctx.sources) + f"\nMaqsad: {ctx.target}"
+        lines = ctx.sources_fn() if ctx.sources_fn else [f"• {s}" for s in ctx.sources]
+        return "Manbalar:\n" + "\n".join(lines) + f"\nMaqsad: {ctx.target}"
     if cmd == "last":
         n = int(args[0]) if args and args[0].isdigit() else 10
         rows = await ctx.repo.last_units(max(1, min(n, 30)))

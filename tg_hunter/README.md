@@ -46,7 +46,16 @@ Windows'da to'g'ridan-to'g'ri ishlatish uchun ffmpeg va Tesseract (rus, uzb till
 Natijalar yoqsa: botga `/dryrun off` yozing — jonli rejim. Qaytarish: `/dryrun on`.
 
 ## Admin buyruqlari (faqat ADMIN_ID)
-`/status` · `/pause` · `/resume` · `/dryrun on|off` · `/sources` · `/last 10`
+`/status` · `/report` (bugungi hisobot darrov) · `/pause` · `/resume` · `/dryrun on|off` · `/sources` (kanal/guruh turi bilan) · `/last 10`
+
+## Manba GURUH bo'lsa
+Manba sifatida kanal o'rniga **guruh** (a'zolar yozishadigan chat) ko'rsatilsa, agent uni sukut bo'yicha **o'tkazib yuboradi**
+(a'zolarning yozishmalarini qayta ishlamaslik va keraksiz shovqin/LLM sarfini oldini olish uchun). Ishga tushganda bot ogohlantiradi,
+`/sources` har manbaning turini ko'rsatadi. Guruh kerak bo'lsa: `config.yaml` da `watcher: include_groups: true`.
+
+## Yangilash (Windows)
+Yangi `tg_hunter_yangilanish*.zip` ni Downloads'ga yuklab oling va `YANGILASH.bat` ni ikki marta bosing: u eng yangi zipni topadi,
+fayllarni almashtiradi (`.env`, `config.yaml`, `data` tegilmaydi) va `docker compose up -d --build` ni bajaradi.
 
 ## Xavfsizlik va ishonchlilik
 - Kalitlar faqat `.env` da (gitga tushmaydi). Telethon session — `data/` (gitga tushmaydi).

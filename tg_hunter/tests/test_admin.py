@@ -59,3 +59,12 @@ async def test_report_command_returns_report_text(repo):
     assert "/report" in await handle_command("/help", [], ctx)
     ctx2 = AdminContext(repo, ["@a"], "@t", status)
     assert "ulanmagan" in await handle_command("/report", [], ctx2)
+
+
+async def test_sources_command_uses_descriptions_when_available(repo):
+    async def status():
+        return "s"
+
+    ctx = AdminContext(repo, ["@a"], "@t", status, sources_fn=lambda: ["• Kanal — kanal", "• Guruh — guruh — O'TKAZIB YUBORILADI"])
+    out = await handle_command("/sources", [], ctx)
+    assert "Kanal — kanal" in out and "O'TKAZIB YUBORILADI" in out and "@t" in out

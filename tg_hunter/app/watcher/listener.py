@@ -39,7 +39,10 @@ class Watcher:
         sources: list[str],
         on_new_unit: Callable[[], None] | None = None,
         notify: Callable[[str], Awaitable[None]] | None = None,
+        include_groups: bool = False,
     ):
+        self.include_groups = include_groups
+        self.kinds: dict[int, str] = {}  # cid -> "kanal" | "guruh"
         self.on_new_unit = on_new_unit or (lambda: None)
         self.notify = notify
         self.client = client
@@ -47,6 +50,7 @@ class Watcher:
         self.source_refs = sources
         self.source_ids: set[int] = set()
         self.titles: dict[int, str] = {}
+        self.refs: dict[int, str] = {}
 
     async def resolve_sources(self) -> None:
         for ref in self.source_refs:
@@ -57,7 +61,10 @@ class Watcher:
             cid = utils.get_peer_id(entity)
             self.source_ids.add(cid)
             self.titles[cid] = getattr(entity, "title", None) or str(ref)
-            log.info("source_resolved", ref=ref, channel_id=cid, title=self.titles[cid])
+            # Telegram'da faqat `broadcast=True` obyekt kanal; megagroup/oddiy guruh — a'zolar yozishmasi.
+            self.kinds[cid] = "kanal" if getattr(entity, "broadcast", False) else "guruh"
+            self.refs[cid] = str(ref)
+            log.info("source_resolved", ref=ref, channel_id=cid, title=self.titles[cid], kind=self.kinds[cid])
 
     def register(self) -> None:
         self.client.add_event_handler(self.on_message, events.NewMessage())
@@ -66,7 +73,24 @@ class Watcher:
         self.client.add_event_handler(self.on_delete, events.MessageDeleted())
 
     def _is_source(self, chat_id: int | None) -> bool:
-        return chat_id is not None and chat_id in self.source_ids
+        if chat_id is None or chat_id not in self.source_ids:
+            return False
+        return self.include_groups or self.kinds.get(chat_id) != "guruh"  # guruh: faqat include_groups=True bo'lsa
+
+    def ignored_groups(self) -> list[str]:
+        """O'tkazib yuboriladigan guruh manbalar (foydalanuvchini ogohlantirish uchun)."""
+        if self.include_groups:
+            return []
+        return [f"{self.titles.get(c, c)} ({self.refs.get(c, c)})" for c, k in self.kinds.items() if k == "guruh"]
+
+    def describe(self) -> list[str]:
+        """`/sources` uchun: har manba turi (kanal/guruh) va qayta ishlanishi."""
+        out = []
+        for cid in sorted(self.source_ids):
+            kind = self.kinds.get(cid, "noma'lum")
+            note = " — O'TKAZIB YUBORILADI (a'zolar yozishmasi)" if kind == "guruh" and not self.include_groups else ""
+            out.append(f"• {self.titles.get(cid, cid)} ({self.refs.get(cid, cid)}) — {kind}{note}")
+        return out
 
     async def _ingest(self, messages: list, chat_id: int) -> None:
         unit = normalize(messages, chat_id, self.titles.get(chat_id, ""))

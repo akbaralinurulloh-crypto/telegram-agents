@@ -77,21 +77,21 @@ async def test_unfittable_video_still_rejected(repo, cfg, tmp_path):
 # ---------- DRY-RUN da rad sabablari ko'rinadi ----------
 async def test_dryrun_tells_admin_about_rejects(repo, cfg):
     e = Env(repo, cfg, FakeLLM(scorer=[scored()]))
-    await e.run(await e.add("Telefon sotiladi, chegirma 20% gacha!"))
+    await e.run(await e.add("Yangi telefon sotiladi, chegirma 20% gacha, aksiya faqat bugun!"))
     assert any("❌" in n and "commercial_ad" in n and "Manba1" in n for n in e.notes)
 
 
 async def test_live_mode_does_not_spam_rejects(repo, cfg):
     e = Env(repo, cfg, FakeLLM(scorer=[scored()]))
     await e.live()
-    await e.run(await e.add("Telefon sotiladi, chegirma 20% gacha!"))
+    await e.run(await e.add("Yangi telefon sotiladi, chegirma 20% gacha, aksiya faqat bugun!"))
     assert e.notes == []
 
 
 async def test_reject_notice_can_be_disabled(repo, cfg):
     cfg.pipeline.notify_rejects_in_dryrun = False
     e = Env(repo, cfg, FakeLLM(scorer=[scored()]))
-    await e.run(await e.add("Telefon sotiladi, chegirma 20% gacha!"))
+    await e.run(await e.add("Yangi telefon sotiladi, chegirma 20% gacha, aksiya faqat bugun!"))
     assert e.notes == []
 
 
@@ -118,3 +118,23 @@ async def test_heartbeat_writes_timestamp(repo):
     await heartbeat(repo)
     raw = await repo.get_kv(HEARTBEAT_KEY)
     assert abs((datetime.now(timezone.utc) - datetime.fromisoformat(raw)).total_seconds()) < 5
+
+
+# ---------- shovqin himoyasi ----------
+async def test_short_chatter_rejects_are_not_announced(repo, cfg):
+    e = Env(repo, cfg, FakeLLM(scorer=[scored(2, 2, 2, 2)]))
+    await e.run(await e.add("Salom, rahmat"))
+    assert e.notes == []  # qisqa yozishma — shovqin
+    assert (await repo.last_units(1))[0].decision_reason == "low_score"  # lekin baribir hisobga olinadi
+
+
+async def test_reject_notices_are_capped_per_hour(repo, cfg):
+    cfg.pipeline.max_reject_notices_per_hour = 3
+    e = Env(repo, cfg, FakeLLM(scorer=[scored(2, 2, 2, 2)]))
+    for i in range(6):
+        await e.run(await e.add(f"Bu uzun yozishma raqami {i}, mavzuga aloqasi yo'q oddiy gaplar mazmuni"))
+    assert len(e.notes) == 3
+    later = datetime.now(timezone.utc) + timedelta(hours=2)
+    e.p._now = lambda: later  # soatlik oyna o'tdi — yana ko'rsatiladi
+    await e.run(await e.add("Yana bir uzun yozishma, mavzuga aloqasi yo'q boshqa oddiy gaplar"))
+    assert len(e.notes) == 4
