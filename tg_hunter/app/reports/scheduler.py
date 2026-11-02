@@ -1,7 +1,7 @@
 """Hisobotlarni jadval bo'yicha yuborish (Asia/Tashkent) va muvaffaqiyatsizlarini qayta yuborish."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, time, timezone
 from typing import Awaitable, Callable
 from zoneinfo import ZoneInfo
 
@@ -10,11 +10,11 @@ from apscheduler.triggers.cron import CronTrigger
 
 from app.bot_admin import is_dry_run, is_paused
 from app.db.repository import Repository
-from app.reports.builder import build_report, period_for, system_lines
+from app.reports.builder import Period, build_report, period_for, system_lines
 from app.utils.logging import get_logger
+from app.utils.text import TG_LIMIT, split_message
 
 log = get_logger("reports")
-TG_LIMIT = 4000
 HEARTBEAT_KEY = "last_seen"
 
 
@@ -41,14 +41,7 @@ async def downtime_notice(repo: Repository, now: datetime, tz: ZoneInfo, min_min
     )
 
 
-def chunks(text: str, limit: int = TG_LIMIT) -> list[str]:
-    out, cur = [], ""
-    for line in text.split("\n"):
-        if len(cur) + len(line) + 1 > limit and cur:
-            out.append(cur)
-            cur = ""
-        cur += line[:limit] + "\n"
-    return out + ([cur] if cur.strip() else [])
+chunks = split_message  # eski nom (testlar va tashqi chaqiruvlar uchun)
 
 
 class ReportService:
@@ -80,9 +73,17 @@ class ReportService:
         period = period_for(slot, self.slots, scheduled, self.tz)
         pkey = self.key(scheduled.astimezone(self.tz).date(), slot)
         await self.repo.ensure_report(pkey, "full" if period.full_day else "regular", scheduled)
-        sysl = await system_lines(self.repo, self.connected(), await is_dry_run(self.repo, self.dry_default), await is_paused(self.repo))
+        sysl = await system_lines(self.repo, self.connected(), await is_dry_run(self.repo, self.dry_default), await is_paused(self.repo), tz=self.tz)
         text = await build_report(self.repo, period, target=self.target, sources=self.sources, system_lines=sysl)
         return await self._deliver(pkey, text)
+
+    async def preview_now(self) -> str:
+        """Bugungi kunning hozirgacha bo'lgan hisobotini darrov yig'adi (`/report`). Jadvalga va yuborilgan-belgisiga ta'sir qilmaydi."""
+        now = self._now()
+        start = datetime.combine(now.date(), time(0, 0), tzinfo=self.tz)
+        period = Period(start.astimezone(timezone.utc), now.astimezone(timezone.utc), f"{start:%d.%m %H:%M} → {now:%d.%m %H:%M}", True)
+        sysl = await system_lines(self.repo, self.connected(), await is_dry_run(self.repo, self.dry_default), await is_paused(self.repo), tz=self.tz)
+        return await build_report(self.repo, period, target=self.target, sources=self.sources, system_lines=sysl, title="📊 HISOBOT (bugun, hozirgacha)")
 
     async def _deliver(self, pkey: str, text: str) -> bool:
         try:
@@ -103,7 +104,7 @@ class ReportService:
             if not r.text:  # yig'ish ham muvaffaqiyatsiz bo'lgan: qaytadan yig'amiz
                 slot = r.period_key.split("@")[1]
                 period = period_for(slot, self.slots, sched, self.tz)
-                sysl = await system_lines(self.repo, self.connected(), await is_dry_run(self.repo, self.dry_default), await is_paused(self.repo))
+                sysl = await system_lines(self.repo, self.connected(), await is_dry_run(self.repo, self.dry_default), await is_paused(self.repo), tz=self.tz)
                 text = await build_report(self.repo, period, target=self.target, sources=self.sources, system_lines=sysl, late_from=sched.astimezone(self.tz).strftime("%d.%m %H:%M"))
             else:
                 late = sched.astimezone(self.tz).strftime("%d.%m %H:%M")

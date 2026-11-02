@@ -4,7 +4,7 @@ from __future__ import annotations
 import shutil
 from collections import Counter, defaultdict
 from dataclasses import dataclass
-from datetime import datetime, time, timedelta
+from datetime import datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from app.db.models import SourceUnit
@@ -59,6 +59,7 @@ async def build_report(
     sources: list[str],
     system_lines: list[str],
     late_from: str | None = None,
+    title: str | None = None,
 ) -> str:
     units = await repo.units_created_between(period.start, period.end)
     seen = len(units)
@@ -70,7 +71,7 @@ async def build_report(
     scored = [u.score for u in units if u.score is not None]
 
     out = []
-    title = "📊 KUNLIK TO'LIQ HISOBOT" if period.full_day else "📊 Hisobot"
+    title = title or ("📊 KUNLIK TO'LIQ HISOBOT" if period.full_day else "📊 Hisobot")
     out.append(f"{title}\n{period.label} (Asia/Tashkent)")
     if late_from:
         out.append(f"⏰ Kechikkan hisobot: {late_from} da yuborilishi kerak edi.")
@@ -105,17 +106,37 @@ async def build_report(
 
     if period.full_day and scored:
         ranked = sorted((u for u in units if u.score is not None), key=lambda u: u.score)
-        best, worst = ranked[-3:][::-1], ranked[:3]
+        k = max(1, min(3, len(ranked) // 2))  # post kam bo'lsa ikki ro'yxat bir-biriga qo'shilib ketmasin
+        best, worst = ranked[-k:][::-1], ranked[:k]
         out.append("\n🏆 Eng yaxshi: " + "; ".join(f"#{u.id} ({u.score:.1f}, {u.state})" for u in best))
-        out.append("📉 Eng past: " + "; ".join(f"#{u.id} ({u.score:.1f}, {u.decision_reason or u.state})" for u in worst))
+        if len(ranked) > 1:
+            out.append("📉 Eng past: " + "; ".join(f"#{u.id} ({u.score:.1f}, {u.decision_reason or u.state})" for u in worst))
 
     out.append("\n🖥 Tizim:\n" + "\n".join(system_lines))
     return "\n".join(out)
 
 
-async def system_lines(repo: Repository, connected: bool | None, dry_run: bool, paused: bool, disk_path: str = ".") -> list[str]:
+def _ago(delta: timedelta) -> str:
+    h = delta.total_seconds() / 3600
+    if h >= 48:
+        return f"{h / 24:.1f} kun oldin"
+    if h >= 1:
+        return f"{h:.1f} soat oldin"
+    return f"{max(int(delta.total_seconds() // 60), 0)} daqiqa oldin"
+
+
+async def system_lines(
+    repo: Repository, connected: bool | None, dry_run: bool, paused: bool, disk_path: str = ".", tz: ZoneInfo | None = None
+) -> list[str]:
     free_gb = shutil.disk_usage(disk_path).free / 1e9
+    started = ""
+    raw = await repo.get_kv("started_at")
+    if raw:
+        st = datetime.fromisoformat(raw)
+        st = st if st.tzinfo else st.replace(tzinfo=timezone.utc)
+        started = f"• Agent ishga tushgan: {st.astimezone(tz or timezone.utc).strftime('%d.%m %H:%M')} ({_ago(datetime.now(timezone.utc) - st)})"
     return [
+        *([started] if started else []),
         f"• Telethon: {'ulangan' if connected else ('uzilgan!' if connected is False else 'noma`lum')}",
         f"• Rejim: {'DRY-RUN' if dry_run else 'JONLI'}{' | ⏸ PAUZA' if paused else ''}",
         f"• Navbat: {await repo.count_pending()}",

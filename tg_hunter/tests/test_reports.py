@@ -127,3 +127,32 @@ async def test_scheduler_registers_three_jobs_in_tashkent_time(repo):
         assert nxt.hour == 8 and nxt.utcoffset().total_seconds() == 5 * 3600
     finally:
         sch.shutdown(wait=False)
+
+
+async def test_preview_now_reports_today_so_far(repo):
+    from datetime import timedelta
+
+    now = datetime(2026, 10, 26, 14, 30, tzinfo=TZ)
+    await seed(repo, created=now.astimezone(timezone.utc) - timedelta(hours=2))  # bugun 12:30 Toshkent
+    svc = service(repo, Sender(), now)
+    text = await svc.preview_now()
+    assert "HISOBOT (bugun, hozirgacha)" in text and "26.10 00:00 → 26.10 14:30" in text
+    assert "Ko'rildi: 10" in text and "Joylandi: 1" in text and "Eng yaxshi" in text
+
+
+async def test_report_shows_when_agent_started(repo):
+    await repo.set_kv("started_at", datetime(2026, 10, 26, 3, 0, tzinfo=timezone.utc).isoformat())  # 08:00 Toshkent
+    from app.reports.builder import system_lines
+
+    lines = await system_lines(repo, True, True, False, tz=TZ)
+    assert any("Agent ishga tushgan: 26.10 08:00" in line for line in lines)
+
+
+async def test_best_and_worst_do_not_overlap(repo):
+    await seed(repo)
+    p = period_for("20:00", SLOTS, datetime(2026, 10, 26, 20, 0, tzinfo=TZ), TZ)
+    text = await build_report(repo, p, target="@kanal", sources=["@a"], system_lines=[])
+    best = [l for l in text.splitlines() if l.startswith("🏆")][0]
+    worst = [l for l in text.splitlines() if l.startswith("📉")][0]
+    ids = lambda s: {w.strip(";") for w in s.split() if w.startswith("#")}
+    assert ids(best) and ids(worst) and not (ids(best) & ids(worst))

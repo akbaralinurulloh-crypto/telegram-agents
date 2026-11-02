@@ -45,3 +45,17 @@ async def test_last(ctx):
     await ctx.repo.record_decision(u.id, "rejected", "low_score", score=5.5)
     out = await handle_command("/last", [], ctx)
     assert "rejected/low_score" in out and "ball=5.5" in out
+
+
+async def test_report_command_returns_report_text(repo):
+    async def status():
+        return "s"
+
+    async def report():
+        return "📊 HISOBOT ..."
+
+    ctx = AdminContext(repo, ["@a"], "@t", status, report_fn=report)
+    assert await handle_command("/report", [], ctx) == "📊 HISOBOT ..."
+    assert "/report" in await handle_command("/help", [], ctx)
+    ctx2 = AdminContext(repo, ["@a"], "@t", status)
+    assert "ulanmagan" in await handle_command("/report", [], ctx2)

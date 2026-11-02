@@ -58,12 +58,13 @@ async def run() -> None:
             f"\nNavbat: {await repo.count_pending()}\nManbalar: {len(watcher.source_ids)}\nLLM: {cfg.llm.provider}"
         )
 
-    dp = build_dispatcher(admin_id, AdminContext(repo, settings.source_channels, target, status))
     reports = ReportService(
         repo, notify, slots=cfg.report_times, tz=cfg.timezone, target=target, sources=settings.source_channels,
         connected=client.is_connected, dry_run_default=settings.dry_run,
     )
+    dp = build_dispatcher(admin_id, AdminContext(repo, settings.source_channels, target, status, report_fn=reports.preview_now))
     gap_text = await downtime_notice(repo, datetime.now(timezone.utc), reports.tz, cfg.pipeline.downtime_notice_minutes)
+    await repo.set_kv("started_at", datetime.now(timezone.utc).isoformat())
     await heartbeat(repo)
     scheduler = reports.start()
 

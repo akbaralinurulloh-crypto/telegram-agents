@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Awaitable, Callable
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import Command
@@ -9,6 +10,7 @@ from aiogram.types import Message
 
 from app.db.repository import Repository
 from app.utils.logging import get_logger
+from app.utils.text import split_message
 
 log = get_logger("admin")
 
@@ -21,6 +23,7 @@ class AdminContext:
     sources: list[str]
     target: str
     status_fn: "callable"  # async () -> str
+    report_fn: Callable[[], Awaitable[str]] | None = None  # async () -> hisobot matni
 
 
 async def is_paused(repo: Repository) -> bool:
@@ -35,9 +38,13 @@ async def is_dry_run(repo: Repository, default: bool = True) -> bool:
 async def handle_command(cmd: str, args: list[str], ctx: AdminContext) -> str:
     cmd = cmd.lstrip("/").split("@")[0].lower()
     if cmd in ("start", "help"):
-        return "Buyruqlar: /status, /pause, /resume, /dryrun on|off, /sources, /last [N]"
+        return "Buyruqlar: /status, /report, /pause, /resume, /dryrun on|off, /sources, /last [N]"
     if cmd == "status":
         return await ctx.status_fn()
+    if cmd == "report":
+        if ctx.report_fn is None:
+            return "Hisobot xizmati ulanmagan."
+        return await ctx.report_fn()
     if cmd == "pause":
         await ctx.repo.set_kv(PAUSED, "1")
         await ctx.repo.audit("admin_pause")
@@ -73,10 +80,11 @@ def build_dispatcher(admin_id: int, ctx: AdminContext) -> Dispatcher:
     dp = Dispatcher()
     only_admin = F.from_user.id == admin_id
 
-    @dp.message(Command("start", "help", "status", "pause", "resume", "dryrun", "sources", "last"), only_admin)
+    @dp.message(Command("start", "help", "status", "report", "pause", "resume", "dryrun", "sources", "last"), only_admin)
     async def _cmd(message: Message):
         text = (message.text or "").split()
-        await message.answer(await handle_command(text[0], text[1:], ctx))
+        for part in split_message(await handle_command(text[0], text[1:], ctx)):
+            await message.answer(part)
 
     @dp.message()
     async def _other(message: Message):
