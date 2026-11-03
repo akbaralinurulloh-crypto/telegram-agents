@@ -10,10 +10,26 @@ APP_DIR="${APP_DIR:-/opt/tg_hunter}"
 [ -f "$APP_DIR/.env" ] || { echo "XATO: $APP_DIR/.env topilmadi (kalitlar fayli)."; exit 1; }
 
 export DEBIAN_FRONTEND=noninteractive
+export NEEDRESTART_MODE=a
 
-echo "==> [1/6] Paketlar"
-apt-get update -y
-apt-get install -y ca-certificates curl ufw unattended-upgrades
+# Yangi server birinchi daqiqalarda o'zini sozlaydi (cloud-init, avto-yangilanish) va paket qulfini band qilib turadi.
+# Shuning uchun u tugashini kutamiz (eng ko'pi ~5 daqiqa), so'ng davom etamiz.
+wait_for_apt() {
+  command -v cloud-init >/dev/null 2>&1 && { cloud-init status --wait >/dev/null 2>&1 || true; }
+  local i=0
+  while [ "$i" -lt 60 ] && command -v fuser >/dev/null 2>&1 \
+      && fuser /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock /var/lib/apt/lists/lock >/dev/null 2>&1; do
+    i=$((i + 1))
+    sleep 5
+  done
+}
+
+echo "==> [1/6] Paketlar (yangi server o'zini tayyorlayotgan bo'lsa, bir necha daqiqa kutiladi)"
+wait_for_apt
+dpkg --configure -a >/dev/null 2>&1 || true
+APT=(apt-get -o DPkg::Lock::Timeout=300 -y)
+"${APT[@]}" update
+"${APT[@]}" install ca-certificates curl ufw unattended-upgrades
 
 echo "==> [2/6] Docker"
 if ! command -v docker >/dev/null 2>&1; then

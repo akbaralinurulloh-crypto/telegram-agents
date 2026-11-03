@@ -10,3 +10,8 @@ services:
       - ./config.yaml:/app/config.yaml:ro
     restart: unless-stopped
     stop_grace_period: 30s
+    logging:                        # 24/7 ishlaganda log fayllari diskni to'ldirib yubormasin
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
