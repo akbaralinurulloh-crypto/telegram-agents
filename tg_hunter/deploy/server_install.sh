@@ -11,32 +11,45 @@ APP_DIR="${APP_DIR:-/opt/tg_hunter}"
 
 export DEBIAN_FRONTEND=noninteractive
 
-echo "==> [1/5] Paketlar"
+echo "==> [1/6] Paketlar"
 apt-get update -y
 apt-get install -y ca-certificates curl ufw unattended-upgrades
 
-echo "==> [2/5] Docker"
+echo "==> [2/6] Docker"
 if ! command -v docker >/dev/null 2>&1; then
   curl -fsSL https://get.docker.com | sh
 fi
 systemctl enable --now docker >/dev/null 2>&1 || true
 docker compose version >/dev/null
 
-echo "==> [3/5] Swap 2 GB (OCR/video paytida xotira yetishmasligidan himoya)"
+echo "==> [3/6] Swap 2 GB (OCR/video paytida xotira yetishmasligidan himoya)"
 if ! swapon --show | grep -q .; then
   fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile >/dev/null && swapon /swapfile
   grep -q '/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
 fi
 
-echo "==> [4/5] Xavfsizlik: devor (faqat SSH), maxfiy fayllar"
+echo "==> [4/6] Xavfsizlik: devor (faqat SSH), maxfiy fayllar"
 ufw allow OpenSSH >/dev/null
 ufw --force enable >/dev/null
 chmod 600 "$APP_DIR/.env"
 mkdir -p "$APP_DIR/data" && chmod 700 "$APP_DIR/data"
 
-echo "==> [5/5] Agent qurilmoqda va ishga tushirilmoqda (birinchi marta 5-10 daqiqa)"
+echo "==> [5/6] Agent qurilmoqda (birinchi marta 5-10 daqiqa)"
 cd "$APP_DIR"
-docker compose up -d --build
+docker compose build
+
+echo "==> [6/6] Tekshiruv (Telegram, bot, kanallar, AI). O'tsagina agent ishga tushiriladi"
+if docker compose run --rm -T hunter python -m scripts.check --online; then
+  docker compose up -d
+elif [ "${FORCE:-0}" = "1" ]; then
+  echo "!!! Tekshiruv muvaffaqiyatsiz, lekin FORCE=1 berilgani uchun baribir ishga tushirilmoqda."
+  docker compose up -d
+else
+  echo
+  echo "!!! Tekshiruvda muammo bor, agent ISHGA TUSHIRILMADI. Yuqoridagi ❌ qatorlarni tuzating va skriptni qayta ishga tushiring."
+  echo "    (Faqat AI kvotasi kabi mayda muammo bo'lsa: FORCE=1 bash $APP_DIR/deploy/server_install.sh)"
+  exit 1
+fi
 sleep 8
 docker compose ps
 echo
