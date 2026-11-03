@@ -48,6 +48,12 @@ Natijalar yoqsa: botga `/dryrun off` yozing — jonli rejim. Qaytarish: `/dryrun
 ## Admin buyruqlari (faqat ADMIN_ID)
 `/status` · `/report` (bugungi hisobot darrov) · `/pause` · `/resume` · `/dryrun on|off` · `/sources` (kanal/guruh turi bilan) · `/last 10`
 
+## Kompyuter uxlasa (laptop) nima bo'ladi
+Docker Desktop (WSL2) da kompyuter uyquga ketganda agent ham to'xtaydi. Uyg'ongach agent: (1) `💤 ... to'xtab turgan edi` xabarini yuboradi,
+(2) o'tkazib yuborilgan hisobotlarni (12 soatgacha) `⏰ Kechikkan` belgisi bilan yuboradi, (3) Telegram yangiliklarini qayta oladi va
+manbalarni o'zi tekshiradi. Zaxira tekshiruv har 10 daqiqada ishlaydi (Telegram yangilik yubormasa ham post o'tib ketmaydi).
+Uzluksiz 24/7 uchun baribir VPS kerak; laptopda: `powercfg /change standby-timeout-ac 0` (quvvatga ulangan paytda uyquni o'chiradi).
+
 ## Manba GURUH bo'lsa
 Manba sifatida kanal o'rniga **guruh** (a'zolar yozishadigan chat) ko'rsatilsa, agent uni sukut bo'yicha **o'tkazib yuboradi**
 (a'zolarning yozishmalarini qayta ishlamaslik va keraksiz shovqin/LLM sarfini oldini olish uchun). Ishga tushganda bot ogohlantiradi,

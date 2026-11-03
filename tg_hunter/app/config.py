@@ -29,6 +29,8 @@ class ScoringCfg(BaseModel):
 
 class WatcherCfg(BaseModel):
     catch_up: bool = True
+    poll_minutes: float = Field(10, gt=0)  # zaxira: Telegram yangilik yubormasa ham, manbalarni shuncha daqiqada bir tekshiradi
+    poll_window_hours: float = Field(24, gt=0)  # zaxira tekshiruv shuncha soat ichidagi postlarni oladi
     include_groups: bool = False  # manba GURUH bo'lsa (a'zolar yozishmasi) — sukut bo'yicha o'tkazib yuboriladi
 
 
@@ -71,6 +73,11 @@ class PipelineCfg(BaseModel):
     downtime_notice_minutes: float = Field(10, gt=0)  # shundan uzoq o'chiq turgan bo'lsa, ishga tushganda ogohlantiradi
 
 
+class ReportsCfg(BaseModel):
+    grace_hours: float = Field(12, gt=0)  # kompyuter uxlab/o'chiq turgan bo'lsa, o'tkazib yuborilgan hisobot shuncha soatgacha KECHIKIB yuboriladi
+    sleep_gap_minutes: float = Field(5, gt=0)  # shundan uzoq 'jim' turish uyqu deb hisoblanadi va adminga xabar beriladi
+
+
 class AppConfig(BaseModel):
     timezone: str = "Asia/Tashkent"
     report_times: list[str] = ["08:00", "13:00", "20:00"]
@@ -83,6 +90,7 @@ class AppConfig(BaseModel):
     llm: LLMCfg = LLMCfg()
     media: MediaCfg = MediaCfg()
     pipeline: PipelineCfg = PipelineCfg()
+    reports: ReportsCfg = ReportsCfg()
 
 
 class Settings(BaseSettings):

@@ -119,3 +119,69 @@ async def test_groups_can_be_enabled(repo):
     await w.on_message(ev(GR, msg(1, "guruhdagi yozishma")))
     assert await repo.mark_edited(GR, 1, "guruhdagi yozishma") is not None
     assert "O'TKAZIB" not in "\n".join(w.describe())
+
+
+# ---------- zaxira tekshiruv (push kelmasa ham postlar olinadi) ----------
+from datetime import timedelta  # noqa: E402
+
+
+class PollClient:
+    def __init__(self, by_chat):
+        self.by_chat, self.calls = by_chat, []
+
+    async def get_messages(self, cid, limit=30):
+        self.calls.append((cid, limit))
+        return self.by_chat.get(cid, [])  # Telethon: eng yangisi birinchi
+
+
+def pmsg(id, text="", ago_h=1, grouped=None, action=None, **media):
+    m = msg(id, text, grouped, **media)
+    m.date = datetime.now(timezone.utc) - timedelta(hours=ago_h)
+    m.action = action
+    return m
+
+
+async def polling_watcher(repo, by_chat, include_groups=False):
+    w = await resolved(repo, include_groups=include_groups)
+    w.client = PollClient(by_chat)
+    w.new_calls = []
+    w.on_new_unit = lambda: w.new_calls.append(1)
+    return w
+
+
+SINCE = lambda: datetime.now(timezone.utc) - timedelta(hours=24)  # noqa: E731
+
+
+async def test_poll_ingests_recent_posts_oldest_first_and_skips_old_and_service(repo):
+    msgs = [pmsg(9, "Yangi post", 1), pmsg(8, "", 2, action=object()), pmsg(7, "Kecha emas, 30 soat oldingi", 30), pmsg(6, "", 3), pmsg(5, "Rasmli post", 4, photo=1)]
+    w = await polling_watcher(repo, {CH: msgs})
+    assert await w.poll_recent(SINCE()) == 2  # 9 va 5; xizmat xabari, eski va bo'sh xabar o'tkazib yuborildi
+    assert w.new_calls == [1]
+    assert await repo.mark_edited(CH, 5, "Rasmli post") is not None and await repo.mark_edited(CH, 9, "Yangi post") is not None
+    assert await repo.mark_edited(CH, 7, "x") is None
+    ids = [u.id for u in await repo.last_units(10)]  # last_units: yangisi birinchi
+    assert (await repo.get_unit(min(ids))).text == "Rasmli post"  # eskisi birinchi qo'shilgan
+
+
+async def test_poll_is_idempotent_and_does_not_duplicate_live_events(repo):
+    w = await polling_watcher(repo, {CH: [pmsg(5, "Post matni", 1)]})
+    await w.on_message(ev(CH, msg(5, "Post matni")))  # jonli hodisa allaqachon olgan
+    before = len(w.new_calls)
+    assert await w.poll_recent(SINCE()) == 0
+    assert await w.poll_recent(SINCE()) == 0 and len(w.new_calls) == before  # zaxira tekshiruv takror signal bermaydi
+
+
+async def test_poll_groups_album_into_one_unit(repo):
+    msgs = [pmsg(12, "", 1, grouped=77, photo=1), pmsg(11, "Albom izohi", 1, grouped=77, photo=1), pmsg(10, "", 1, grouped=77, video=1)]
+    w = await polling_watcher(repo, {CH: msgs})
+    assert await w.poll_recent(SINCE()) == 1
+    res = await repo.mark_edited(CH, 11, "Albom izohi")
+    assert res is not None and [m.message_id for m in res.unit.messages] == [10, 11, 12]
+
+
+async def test_poll_skips_ignored_group_but_polls_it_when_enabled(repo):
+    by = {CH: [pmsg(1, "Kanal posti", 1)], GR: [pmsg(1, "Guruh yozishmasi", 1)]}
+    w = await polling_watcher(repo, by)
+    assert await w.poll_recent(SINCE()) == 1 and [c for c, _ in w.client.calls] == [CH]  # guruh so'ralmaydi ham
+    w2 = await polling_watcher(repo, {GR: [pmsg(2, "Guruh yozishmasi", 1)]}, include_groups=True)
+    assert await w2.poll_recent(SINCE()) == 1

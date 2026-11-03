@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Awaitable, Callable
 
 from telethon import TelegramClient, events, utils
@@ -7,7 +8,7 @@ from telethon import TelegramClient, events, utils
 from app.config import AppConfig, Settings
 from app.db.repository import Repository
 from app.utils.logging import get_logger
-from app.watcher.normalize import normalize
+from app.watcher.normalize import media_kind, normalize
 
 log = get_logger("watcher")
 
@@ -105,6 +106,32 @@ class Watcher:
         )
         if created:
             self.on_new_unit()
+
+    async def poll_recent(self, since: datetime, limit: int = 30) -> int:
+        """ZAXIRA: Telegram yangilikni push qilmagan bo'lsa ham, har manbadan so'nggi postlarni o'zimiz olib, yangilarini DB'ga qo'shadi.
+        Idempotent: allaqachon bor postlar (xabar ID bo'yicha) qayta qo'shilmaydi. Qo'shilgan birliklar sonini qaytaradi."""
+        created = 0
+        for cid in sorted(self.source_ids):
+            if not self._is_source(cid):
+                continue
+            msgs = await self.client.get_messages(cid, limit=limit)
+            fresh = [
+                m for m in msgs
+                if m is not None and m.date is not None and m.date >= since
+                and not getattr(m, "action", None)  # xizmat xabarlari (a'zo qo'shildi, pin ...) emas
+                and ((m.message or "").strip() or media_kind(m))  # bo'sh xabar emas
+            ]
+            batches: dict[object, list] = {}
+            for m in fresh:
+                batches.setdefault(("album", m.grouped_id) if m.grouped_id else ("one", m.id), []).append(m)
+            for batch in sorted(batches.values(), key=lambda b: min(x.id for x in b)):  # eskisi birinchi
+                row, was_new = await self.repo.add_unit(normalize(batch, cid, self.titles.get(cid, "")))
+                if was_new:
+                    created += 1
+                    log.info("unit_polled", unit_id=row.id, channel=self.titles.get(cid), messages=[x.id for x in batch])
+        if created:
+            self.on_new_unit()
+        return created
 
     async def on_message(self, event) -> None:
         if not self._is_source(event.chat_id) or event.message.grouped_id:

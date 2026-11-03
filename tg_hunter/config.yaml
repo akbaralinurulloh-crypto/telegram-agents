@@ -21,6 +21,8 @@ scoring:
 
 watcher:
   catch_up: true      # o'chiq turgan vaqtdagi xabarlarni ham olish (Telethon catch_up)
+  poll_minutes: 10        # zaxira: Telegram yangilik yubormasa ham manbalarni shuncha daqiqada bir o'zi tekshiradi
+  poll_window_hours: 24   # va shuncha soat ichidagi yangi postlarni oladi
   include_groups: false   # manba GURUH bo'lsa (a'zolar yozishmasi): false = o'tkazib yuboriladi, true = hamma xabar qayta ishlanadi
 
 caption:
@@ -74,3 +76,7 @@ pipeline:
   notify_rejects_in_dryrun: true   # DRY-RUN da rad etilganlar sababini ham ko'rsatadi
   max_reject_notices_per_hour: 15  # shu xabarlar soat uchun chegarasi
   downtime_notice_minutes: 10      # shundan uzoq o'chiq turgan bo'lsa, ishga tushganda ogohlantiradi
+
+reports:
+  grace_hours: 12             # kompyuter uxlagan/o'chiq bo'lsa, o'tkazib yuborilgan hisobot shuncha soatgacha kechikib yuboriladi
+  sleep_gap_minutes: 5        # shundan uzoq jim turish = uyqu: adminga xabar beriladi

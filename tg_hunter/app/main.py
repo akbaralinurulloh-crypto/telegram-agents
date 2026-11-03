@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import signal
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from aiogram import Bot
 
@@ -51,22 +51,53 @@ async def run() -> None:
     await watcher.resolve_sources()
     watcher.register()
 
+    async def source_lines() -> str:
+        stats = await repo.source_stats()
+        out = []
+        for cid in sorted(watcher.source_ids):
+            last = stats.get(cid)
+            when = f"{last[0].astimezone(reports_tz()).strftime('%d.%m %H:%M')} (jami {last[1]} ta)" if last else "hali post kelmagan"
+            ign = " — o'tkazib yuboriladi" if watcher.kinds.get(cid) == "guruh" and not watcher.include_groups else ""
+            out.append(f"  • {watcher.titles.get(cid, cid)} [{watcher.kinds.get(cid, '?')}]{ign}: oxirgi qabul — {when}")
+        return "\n".join(out)
+
+    def reports_tz():
+        return reports.tz
+
     async def status() -> str:
         return (
             f"Agent ishlayapti.\nRejim: {'DRY-RUN' if await is_dry_run(repo, settings.dry_run) else 'JONLI'}"
             f"{' | ⏸ PAUZA' if await is_paused(repo) else ''}\nTelethon: {'ulangan' if client.is_connected() else 'UZILGAN'}"
-            f"\nNavbat: {await repo.count_pending()}\nManbalar: {len(watcher.source_ids)}\nLLM: {cfg.llm.provider}"
+            f"\nNavbat: {await repo.count_pending()}\nLLM: {cfg.llm.provider}\nManbalar:\n{await source_lines()}"
         )
+
+    async def poll_job() -> None:
+        try:
+            n = await watcher.poll_recent(datetime.now(timezone.utc) - timedelta(hours=cfg.watcher.poll_window_hours))
+            if n:
+                log.info("poll_found_new", count=n)
+        except Exception:
+            log.exception("poll_failed")
+
+    async def on_wake() -> None:
+        await client.catch_up()
+        await poll_job()
 
     reports = ReportService(
         repo, notify, slots=cfg.report_times, tz=cfg.timezone, target=target, sources=settings.source_channels,
         connected=client.is_connected, dry_run_default=settings.dry_run,
+        grace=timedelta(hours=cfg.reports.grace_hours), sleep_gap=timedelta(minutes=cfg.reports.sleep_gap_minutes),
+        on_wake=on_wake,  # uyqudan keyin: Telegram yangiliklarini majburan qayta olish + manbalarni o'zimiz tekshirish
     )
     dp = build_dispatcher(admin_id, AdminContext(repo, settings.source_channels, target, status, report_fn=reports.preview_now, sources_fn=watcher.describe))
     gap_text = await downtime_notice(repo, datetime.now(timezone.utc), reports.tz, cfg.pipeline.downtime_notice_minutes)
     await repo.set_kv("started_at", datetime.now(timezone.utc).isoformat())
     await heartbeat(repo)
     scheduler = reports.start()
+    scheduler.add_job(
+        poll_job, "interval", minutes=cfg.watcher.poll_minutes, id="poll_sources", coalesce=True, max_instances=1,
+        misfire_grace_time=None, next_run_time=datetime.now(reports.tz) + timedelta(seconds=20),
+    )
 
     log.info("started", dry_run=settings.dry_run, sources=len(watcher.source_ids), provider=cfg.llm.provider)
     try:

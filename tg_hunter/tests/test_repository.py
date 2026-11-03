@@ -54,3 +54,13 @@ async def test_delete_marks_once_and_respects_channel(repo):
     assert [x.id for x in await repo.mark_deleted([1, 2], channel_id=-100500)] == [u.id]
     assert await repo.mark_deleted([1], channel_id=-100500) == []  # ikkinchi marta ogohlantirish yo'q
     assert await repo.audit_events(u.id) == ["received", "deleted"]
+
+
+async def test_source_stats(repo):
+    assert await repo.source_stats() == {}
+    await repo.add_unit(unit(ids=(1,), cid=-1))
+    await repo.add_unit(unit(ids=(2,), cid=-1))
+    await repo.add_unit(unit(ids=(1,), cid=-2))
+    stats = await repo.source_stats()
+    assert stats[-1][1] == 2 and stats[-2][1] == 1
+    assert stats[-1][0].tzinfo is not None

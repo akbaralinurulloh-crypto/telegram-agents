@@ -182,6 +182,15 @@ class Repository:
         async with self._sm() as s:
             return int(await s.scalar(select(func.count()).select_from(SourceUnit).where(SourceUnit.state.in_(("received", "processing")), SourceUnit.deleted_at.is_(None))) or 0)
 
+    async def source_stats(self) -> dict[int, tuple[datetime, int]]:
+        """Har manba (channel_id) bo'yicha: oxirgi qabul qilingan post vaqti (UTC) va jami soni."""
+        async with self._sm() as s:
+            rows = (await s.execute(select(SourceUnit.channel_id, func.max(SourceUnit.created_at), func.count()).group_by(SourceUnit.channel_id))).all()
+        out = {}
+        for cid, last, n in rows:
+            out[cid] = (last if last.tzinfo else last.replace(tzinfo=timezone.utc), n)
+        return out
+
     # ---- ish vaqti sozlamalari ----
     async def get_kv(self, key: str, default: str | None = None) -> str | None:
         async with self._sm() as s:
@@ -206,6 +215,10 @@ class Repository:
                 s.add(row)
                 await s.flush()
             return row
+
+    async def get_report(self, period_key: str) -> ReportLog | None:
+        async with self._sm() as s:
+            return await s.scalar(select(ReportLog).where(ReportLog.period_key == period_key))
 
     async def save_report_attempt(self, period_key: str, text: str, sent: bool) -> None:
         async with self._sm.begin() as s:

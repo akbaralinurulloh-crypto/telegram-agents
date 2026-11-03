@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -111,24 +111,6 @@ async def test_long_report_is_chunked_under_telegram_limit():
     assert len(parts) > 1 and all(len(p) <= 4096 for p in parts)
 
 
-async def test_scheduler_registers_three_jobs_in_tashkent_time(repo):
-    svc = service(repo, Sender(), datetime(2026, 10, 26, 7, 0, tzinfo=TZ))
-    sch = svc.start()
-    try:
-        jobs = {j.id: j for j in sch.get_jobs()}
-        assert {"report_08:00", "report_13:00", "report_20:00", "report_retry"} <= set(jobs)
-        for slot in SLOTS:
-            trig = jobs[f"report_{slot}"].trigger
-            assert str(trig.timezone) == "Asia/Tashkent"
-            f = {x.name: str(x) for x in trig.fields}
-            assert f["hour"] == str(int(slot[:2])) and f["minute"] == "0"
-        # keyingi ishga tushish aynan Toshkent vaqti bilan 08:00
-        nxt = jobs["report_08:00"].trigger.get_next_fire_time(None, datetime(2026, 10, 26, 7, 0, tzinfo=TZ))
-        assert nxt.hour == 8 and nxt.utcoffset().total_seconds() == 5 * 3600
-    finally:
-        sch.shutdown(wait=False)
-
-
 async def test_preview_now_reports_today_so_far(repo):
     from datetime import timedelta
 
@@ -156,3 +138,89 @@ async def test_best_and_worst_do_not_overlap(repo):
     worst = [l for l in text.splitlines() if l.startswith("📉")][0]
     ids = lambda s: {w.strip(";") for w in s.split() if w.startswith("#")}
     assert ids(best) and ids(worst) and not (ids(best) & ids(worst))
+
+
+# ---------- tick: haqiqiy soatga qarab jadval (uyqu/taymer siljishidan himoya) ----------
+def mk(repo, now_ref, sender, **kw):
+    return ReportService(repo, sender, slots=SLOTS, tz="Asia/Tashkent", target="@kanal", sources=["@a"], now=lambda: now_ref[0], **kw)
+
+
+def at(d, h, m, s=0):
+    return datetime(2026, 10, d, h, m, s, tzinfo=TZ)
+
+
+async def test_tick_sends_due_report_exactly_once(repo):
+    now, s = [at(26, 7, 59)], Sender()
+    svc = mk(repo, now, s)
+    await svc.tick()  # birinchi tick: faqat 'ishga tushgan' vaqt belgilanadi
+    assert s.sent == []
+    now[0] = at(26, 8, 0, 10)
+    await svc.tick()
+    assert len(s.sent) == 1 and "Hisobot" in s.sent[0] and "Kechikkan" not in s.sent[0]
+    now[0] = at(26, 8, 0, 40)
+    await svc.tick()
+    now[0] = at(26, 8, 1)
+    await svc.tick()
+    assert len(s.sent) == 1  # qayta yuborilmaydi
+
+
+async def test_after_sleep_missed_reports_are_sent_late_in_order(repo):
+    """Kompyuter 9:00 dan 22:51 gacha uxlagan: 13:00 va 20:00 hisobotlari KECHIKIB keladi, uyqu haqida ogohlantirish ham."""
+    now, s, woke = [at(26, 8, 59, 30)], Sender(), []
+
+    async def on_wake():
+        woke.append(1)
+
+    svc = mk(repo, now, s, on_wake=on_wake)
+    await svc.tick()
+    now[0] = at(26, 22, 51)
+    await svc.tick()
+    assert "💤" in s.sent[0] and "13.9 soat" in s.sent[0] and woke == [1]
+    reports = s.sent[1:]
+    assert len(reports) == 2
+    assert "Kechikkan hisobot: 26.10 13:00" in reports[0] and "26.10 08:00 → 26.10 13:00" in reports[0]
+    assert "Kechikkan hisobot: 26.10 20:00" in reports[1] and "KUNLIK TO'LIQ" in reports[1]
+    assert not any("26.10 08:00 da" in r for r in reports)  # 12 soatdan eski (08:00) hisobot yuborilmaydi
+
+
+async def test_report_due_before_midnight_is_sent_after_midnight_with_its_own_date(repo):
+    now, s = [at(26, 19, 59)], Sender()
+    svc = mk(repo, now, s)
+    await svc.tick()
+    now[0] = at(27, 2, 0)  # 20:00 hisoboti uyquda o'tib ketgan
+    await svc.tick()
+    texts = [x for x in s.sent if "Hisobot" in x or "HISOBOT" in x]
+    assert len(texts) == 1 and "26.10 00:00 → 26.10 20:00" in texts[0] and "Kechikkan hisobot: 26.10 20:00" in texts[0]
+
+
+async def test_first_start_does_not_send_retroactive_reports(repo):
+    now, s = [at(26, 22, 51)], Sender()
+    await mk(repo, now, s).tick()
+    assert s.sent == []  # agent hali ishlamagan davr uchun hisobot yo'q
+
+
+async def test_normal_ticks_do_not_trigger_wake_notice(repo):
+    now, s = [at(26, 10, 0)], Sender()
+    svc = mk(repo, now, s)
+    for i in range(10):
+        now[0] = at(26, 10, 0, 0) + timedelta(seconds=30 * i)
+        await svc.tick()
+    assert s.sent == []
+
+
+async def test_run_slot_twice_sends_once(repo):
+    s = Sender()
+    svc = service(repo, s, at(26, 8, 0, 5))
+    assert await svc.run_slot("08:00") and await svc.run_slot("08:00")
+    assert len(s.sent) == 1
+
+
+async def test_scheduler_runs_tick_every_30_seconds(repo):
+    svc = service(repo, Sender(), at(26, 7, 0))
+    sch = svc.start()
+    try:
+        jobs = {j.id: j for j in sch.get_jobs()}
+        assert {"tick", "report_retry"} == set(jobs)
+        assert jobs["tick"].trigger.interval.total_seconds() == 30
+    finally:
+        sch.shutdown(wait=False)
