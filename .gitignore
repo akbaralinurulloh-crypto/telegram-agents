@@ -27,3 +27,9 @@ env/
 .vscode/
 Thumbs.db
 .DS_Store
+
+# Bir martalik tajriba skriptlari va sessiya holatlari (MAXFIY: ichida akkaunt kaliti bo`lishi mumkin)
+scratch/
+*.session
+*.session-journal
+session_string*.txt
