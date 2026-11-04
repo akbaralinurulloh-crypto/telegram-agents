@@ -34,6 +34,11 @@ Keyin skript chiqargan 6 qadamni bajaring. Yangilash: `bash deploy/update.sh`.
 Avtomatik deploy (ixtiyoriy): `.github/workflows/deploy.yml` — repo Variables'da `DEPLOY_ENABLED=true` va Secrets: `SERVER_HOST`, `SERVER_USER`, `SERVER_SSH_KEY`.
 
 ### GitHub orqali ulash (Railway): tugmalar bilan
+> **OGOHLANTIRISH (2026-11-04): hozircha TAVSIYA ETILMAYDI.** 21-oktabr 2026 kuni Railway o'zgaruvchilar saqlanadigan tizimda
+> xavfsizlik hodisasini e'lon qildi: hujumchi mijozlarning o'zgaruvchilariga kirgan bo'lishi mumkin, barcha foydalanuvchilarga
+> kalitlarni almashtirish tavsiya etilgan. `TG_SESSION_STRING` Telegram akkauntga TO'LIQ kirish beradi, shuning uchun sirlarni
+> o'z serveringizda (VPS, yuqoridagi "Serverda" bo'limi) saqlang. Railway to'liq hisobot e'lon qilgach, qayta ko'rib chiqing.
+
 Server o'rnatmaysiz: GitHub reponi ulaysiz, Railway o'zi quradi va 24/7 ishga tushiradi. Narxi ishlatilganiga qarab (taxminan $5-10/oy).
 Bepul rejalar (masalan Render Free: 0.1 CPU, 512 MB, 15 daqiqada uxlaydi, disk o'chadi) OCR va video uchun yetmaydi.
 
