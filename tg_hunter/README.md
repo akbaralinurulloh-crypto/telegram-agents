@@ -33,6 +33,26 @@ bash setup.sh      # Docker, swap, devor, GitHub deploy kaliti; kalit so'ralsa â
 Keyin skript chiqargan 6 qadamni bajaring. Yangilash: `bash deploy/update.sh`.
 Avtomatik deploy (ixtiyoriy): `.github/workflows/deploy.yml` â€” repo Variables'da `DEPLOY_ENABLED=true` va Secrets: `SERVER_HOST`, `SERVER_USER`, `SERVER_SSH_KEY`.
 
+### GitHub orqali ulash (Railway): tugmalar bilan
+Server o'rnatmaysiz: GitHub reponi ulaysiz, Railway o'zi quradi va 24/7 ishga tushiradi. Narxi ishlatilganiga qarab (taxminan $5-10/oy).
+Bepul rejalar (masalan Render Free: 0.1 CPU, 512 MB, 15 daqiqada uxlaydi, disk o'chadi) OCR va video uchun yetmaydi.
+
+1. **O'zgaruvchilarni tayyorlang** (noutbukda, bir marta; Docker kerak): `RAILWAY_UCHUN_SESSIYA.bat` ni ikki marta bosing.
+   U agentni to'xtatadi, Telegramga qayta kiritadi (telefon + kod) va Railway uchun hamma o'zgaruvchilarni (kalitlar + sessiya matni)
+   toza qatorlar qilib clipboardga nusxalaydi. Qo'lda: `python -m scripts.login`, keyin `python -m scripts.export_session --railway`.
+   (`.env` ni xom nusxalamang: Railway `DRY_RUN=true  # izoh` dagi izohni ham qiymatga qo'shib yuboradi.)
+2. railway.com -> **Login with GitHub** -> **New Project -> Deploy from GitHub repo** -> `telegram-agents`.
+3. Xizmat **Settings**: **Root Directory** = `/tg_hunter`; **Branch** = `main` (PR qo'shilgach) yoki `claude/lucid-curie-94o0u2`.
+   Dockerfile topilmasa, **Variables** ga `RAILWAY_DOCKERFILE_PATH=Dockerfile` qo'shing.
+4. **Variables -> Raw Editor**: clipboarddagi matnni bitta Ctrl+V bilan qo'ying (TG_API_ID, TG_API_HASH, BOT_TOKEN, ADMIN_ID,
+   TARGET_CHANNEL, SOURCE_CHANNELS, GEMINI_API_KEY, DRY_RUN=true, TG_SESSION_STRING) va **Update Variables**. (`TG_SESSION_PATH`, `DATABASE_URL` shart emas.)
+5. **Volumes -> New Volume**, Mount path: `/app/data`. **MAJBURIY**: baza va sessiya fayli shu yerda saqlanadi; usiz har qayta ishga tushganda tarix yo'qoladi.
+6. **Deploy**. Loglarda "TG Hunter ishga tushdi" chiqadi, bot sizga yozadi; `/status`.
+
+Yangilash: GitHub'ga o'zgarish tushsa, Railway o'zi qayta quradi; `config.yaml` ham GitHub'da tahrirlanadi.
+**Xavfsizlik:** `TG_SESSION_STRING` akkauntga to'liq kirish beradi: faqat Railway Variables'da tursin, GitHub'ga yozmang.
+Railway va GitHub'da 2 bosqichli tasdiqlashni yoqing, reponi private qiling.
+
 ### Docker'siz (Linux/macOS/WSL)
 ```
 sudo apt install ffmpeg tesseract-ocr tesseract-ocr-eng tesseract-ocr-rus tesseract-ocr-uzb

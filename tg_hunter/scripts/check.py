@@ -11,6 +11,7 @@ import sys
 from pathlib import Path
 
 from app.config import AppConfig, Settings, get_settings, load_app_config
+from app.watcher.session import session_file
 
 
 def offline_checks(s: Settings, cfg: AppConfig) -> list[tuple[bool, str]]:
@@ -34,8 +35,13 @@ def offline_checks(s: Settings, cfg: AppConfig) -> list[tuple[bool, str]]:
         langs = subprocess.run(["tesseract", "--list-langs"], capture_output=True, text=True).stdout
         for lang in ("eng", "rus", "uzb"):
             add(lang in langs.split(), f"tesseract tili: {lang}")
-    sess = Path(s.tg_session_path)
-    add(sess.with_suffix(sess.suffix or ".session").exists() or Path(str(sess) + ".session").exists() or sess.exists(), f"Telethon session fayli ({s.tg_session_path}) — `python -m scripts.login`")
+    has_file = session_file(s.tg_session_path).exists() or Path(s.tg_session_path).exists()
+    if has_file:
+        add(True, f"Telethon session fayli ({s.tg_session_path})")
+    elif (s.tg_session_string or "").strip():
+        add(True, "Telethon session: TG_SESSION_STRING dan yaratiladi (birinchi ishga tushishda)")
+    else:
+        add(False, f"Telethon session fayli ({s.tg_session_path}) yo'q — `python -m scripts.login` (yoki TG_SESSION_STRING bering)")
     return r
 
 

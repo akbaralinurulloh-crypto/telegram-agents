@@ -9,11 +9,15 @@ from app.config import AppConfig, Settings
 from app.db.repository import Repository
 from app.utils.logging import get_logger
 from app.watcher.normalize import media_kind, normalize
+from app.watcher.session import ensure_session_file
 
 log = get_logger("watcher")
 
 
 def build_client(settings: Settings, cfg: AppConfig) -> TelegramClient:
+    # Fayl yo'q, lekin TG_SESSION_STRING berilgan bo'lsa (Railway/Render), sessiya fayli shundan yaratiladi.
+    if ensure_session_file(settings.tg_session_path, settings.tg_session_string):
+        log.info("session_seeded_from_string", path=settings.tg_session_path)
     return TelegramClient(
         settings.tg_session_path,
         settings.tg_api_id,

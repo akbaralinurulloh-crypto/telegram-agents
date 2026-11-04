@@ -13,6 +13,7 @@ async def main() -> None:
     async with TelegramClient(s.tg_session_path, s.tg_api_id, s.tg_api_hash) as client:
         me = await client.get_me()
         print(f"OK: {me.first_name} (id={me.id}). Session: {s.tg_session_path}")
+        print("Railway/Render kabi xizmatlar uchun sessiya matni kerak bo'lsa: python -m scripts.export_session")
 
 
 if __name__ == "__main__":

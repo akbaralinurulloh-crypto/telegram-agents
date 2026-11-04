@@ -101,6 +101,7 @@ class Settings(BaseSettings):
     tg_api_id: int | None = None
     tg_api_hash: str | None = None
     tg_session_path: str = "data/hunter.session"
+    tg_session_string: str = ""  # ixtiyoriy: sessiya matn ko'rinishida (Railway/Render kabi xizmatlar uchun). MAXFIY!
     bot_token: str | None = None
     admin_id: int | None = None
     target_channel: str | None = None
