@@ -1,0 +1,174 @@
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Awaitable, Callable
+
+from telethon import TelegramClient, events, utils
+
+from app.config import AppConfig, Settings
+from app.db.repository import Repository
+from app.utils.logging import get_logger
+from app.watcher.normalize import media_kind, normalize
+from app.watcher.session import ensure_session_file
+
+log = get_logger("watcher")
+
+
+def build_client(settings: Settings, cfg: AppConfig) -> TelegramClient:
+    # Fayl yo'q, lekin TG_SESSION_STRING berilgan bo'lsa (Railway/Render), sessiya fayli shundan yaratiladi.
+    if ensure_session_file(settings.tg_session_path, settings.tg_session_string):
+        log.info("session_seeded_from_string", path=settings.tg_session_path)
+    return TelegramClient(
+        settings.tg_session_path,
+        settings.tg_api_id,
+        settings.tg_api_hash,
+        connection_retries=-1,  # tarmoq uzilsa cheksiz qayta ulanadi
+        retry_delay=5,
+        auto_reconnect=True,
+        flood_sleep_threshold=60,  # <60s FloodWait'ni Telethon o'zi kutadi
+        catch_up=cfg.watcher.catch_up,
+    )
+
+
+def _parse(ref: str) -> int | str:
+    return int(ref) if ref.lstrip("-").isdigit() else ref
+
+
+class Watcher:
+    """Manba kanallarni FAQAT o'qiydi: DB va logga yozadi, hech narsa yubormaydi."""
+
+    def __init__(
+        self,
+        client: TelegramClient,
+        repo: Repository,
+        sources: list[str],
+        on_new_unit: Callable[[], None] | None = None,
+        notify: Callable[[str], Awaitable[None]] | None = None,
+        include_groups: bool = False,
+    ):
+        self.include_groups = include_groups
+        self.kinds: dict[int, str] = {}  # cid -> "kanal" | "guruh"
+        self.on_new_unit = on_new_unit or (lambda: None)
+        self.notify = notify
+        self.client = client
+        self.repo = repo
+        self.source_refs = sources
+        self.source_ids: set[int] = set()
+        self.titles: dict[int, str] = {}
+        self.refs: dict[int, str] = {}
+
+    async def resolve_sources(self) -> None:
+        for ref in self.source_refs:
+            try:
+                entity = await self.client.get_entity(_parse(ref))
+            except Exception as exc:
+                raise RuntimeError(f"Manba kanal topilmadi yoki a'zo emassiz: {ref!r} ({exc})") from exc
+            cid = utils.get_peer_id(entity)
+            self.source_ids.add(cid)
+            self.titles[cid] = getattr(entity, "title", None) or str(ref)
+            # Telegram'da faqat `broadcast=True` obyekt kanal; megagroup/oddiy guruh — a'zolar yozishmasi.
+            self.kinds[cid] = "kanal" if getattr(entity, "broadcast", False) else "guruh"
+            self.refs[cid] = str(ref)
+            log.info("source_resolved", ref=ref, channel_id=cid, title=self.titles[cid], kind=self.kinds[cid])
+
+    def register(self) -> None:
+        self.client.add_event_handler(self.on_message, events.NewMessage())
+        self.client.add_event_handler(self.on_album, events.Album())
+        self.client.add_event_handler(self.on_edit, events.MessageEdited())
+        self.client.add_event_handler(self.on_delete, events.MessageDeleted())
+
+    def _is_source(self, chat_id: int | None) -> bool:
+        if chat_id is None or chat_id not in self.source_ids:
+            return False
+        return self.include_groups or self.kinds.get(chat_id) != "guruh"  # guruh: faqat include_groups=True bo'lsa
+
+    def ignored_groups(self) -> list[str]:
+        """O'tkazib yuboriladigan guruh manbalar (foydalanuvchini ogohlantirish uchun)."""
+        if self.include_groups:
+            return []
+        return [f"{self.titles.get(c, c)} ({self.refs.get(c, c)})" for c, k in self.kinds.items() if k == "guruh"]
+
+    def describe(self) -> list[str]:
+        """`/sources` uchun: har manba turi (kanal/guruh) va qayta ishlanishi."""
+        out = []
+        for cid in sorted(self.source_ids):
+            kind = self.kinds.get(cid, "noma'lum")
+            note = " — O'TKAZIB YUBORILADI (a'zolar yozishmasi)" if kind == "guruh" and not self.include_groups else ""
+            out.append(f"• {self.titles.get(cid, cid)} ({self.refs.get(cid, cid)}) — {kind}{note}")
+        return out
+
+    async def _ingest(self, messages: list, chat_id: int) -> None:
+        unit = normalize(messages, chat_id, self.titles.get(chat_id, ""))
+        row, created = await self.repo.add_unit(unit)
+        log.info(
+            "unit_received" if created else "unit_duplicate_event",
+            unit_id=row.id,
+            channel=self.titles.get(chat_id),
+            messages=unit.message_ids,
+            media=unit.media_kinds,
+            text_preview=unit.text[:80],
+        )
+        if created:
+            self.on_new_unit()
+
+    async def poll_recent(self, since: datetime, limit: int = 30) -> int:
+        """ZAXIRA: Telegram yangilikni push qilmagan bo'lsa ham, har manbadan so'nggi postlarni o'zimiz olib, yangilarini DB'ga qo'shadi.
+        Idempotent: allaqachon bor postlar (xabar ID bo'yicha) qayta qo'shilmaydi. Qo'shilgan birliklar sonini qaytaradi."""
+        created = 0
+        for cid in sorted(self.source_ids):
+            if not self._is_source(cid):
+                continue
+            msgs = await self.client.get_messages(cid, limit=limit)
+            fresh = [
+                m for m in msgs
+                if m is not None and m.date is not None and m.date >= since
+                and not getattr(m, "action", None)  # xizmat xabarlari (a'zo qo'shildi, pin ...) emas
+                and ((m.message or "").strip() or media_kind(m))  # bo'sh xabar emas
+            ]
+            batches: dict[object, list] = {}
+            for m in fresh:
+                batches.setdefault(("album", m.grouped_id) if m.grouped_id else ("one", m.id), []).append(m)
+            for batch in sorted(batches.values(), key=lambda b: min(x.id for x in b)):  # eskisi birinchi
+                row, was_new = await self.repo.add_unit(normalize(batch, cid, self.titles.get(cid, "")))
+                if was_new:
+                    created += 1
+                    log.info("unit_polled", unit_id=row.id, channel=self.titles.get(cid), messages=[x.id for x in batch])
+        if created:
+            self.on_new_unit()
+        return created
+
+    async def on_message(self, event) -> None:
+        if not self._is_source(event.chat_id) or event.message.grouped_id:
+            return  # albomni on_album yig'adi
+        await self._ingest([event.message], event.chat_id)
+
+    async def on_album(self, event) -> None:
+        if self._is_source(event.chat_id):
+            await self._ingest(list(event.messages), event.chat_id)
+
+    async def on_edit(self, event) -> None:
+        if not self._is_source(event.chat_id):
+            return
+        res = await self.repo.mark_edited(event.chat_id, event.message.id, (event.message.message or "").strip())
+        if res is None:
+            return
+        log.info("unit_edited", unit_id=res.unit.id, text_changed=res.text_changed, state=res.unit.state)
+        if res.unit.state in ("posted", "dryrun"):
+            log.warning("posted_unit_edited_at_source", unit_id=res.unit.id)
+            await self._warn(f"✏️ Manba post tahrirlandi (#{res.unit.id}, {res.unit.channel_title}). U allaqachon {'joylangan' if res.unit.state == 'posted' else 'ko`rsatilgan (DRY-RUN)'}: kanaldagi nusxa eskirgan bo'lishi mumkin.")
+
+    async def on_delete(self, event) -> None:
+        if not self._is_source(event.chat_id):
+            return  # kanal o'chirishlarida chat_id keladi; boshqa chatlarni e'tiborsiz qoldiramiz
+        for unit in await self.repo.mark_deleted(list(event.deleted_ids), event.chat_id):
+            log.info("unit_deleted", unit_id=unit.id, state=unit.state)
+            if unit.state in ("posted", "dryrun"):
+                log.warning("posted_unit_deleted_at_source", unit_id=unit.id)
+                await self._warn(f"🗑 Manba post o'chirildi (#{unit.id}, {unit.channel_title}). U allaqachon {'joylangan' if unit.state == 'posted' else 'ko`rsatilgan (DRY-RUN)'} — kerak bo'lsa kanaldan qo'lda o'chiring.")
+
+    async def _warn(self, text: str) -> None:
+        if self.notify:
+            try:
+                await self.notify(text)
+            except Exception:
+                log.exception("notify_failed")

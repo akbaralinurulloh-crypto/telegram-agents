@@ -1,0 +1,38 @@
+# TG Hunter: Render PULLIK reja (Background Worker, Docker, doimiy disk): jonli ishlash uchun.
+# Ishlatish: Render'da Blueprint yo'lini `tg_hunter/render.paid.yaml` ga o'zgartiring (yoki render.yaml o'rniga qo'ying).
+# Bu faylda SIRLAR YO'Q: `sync: false` degani qiymatni Render panelida (Environment) o'zingiz kiritasiz.
+services:
+  - type: worker
+    name: tg-hunter
+    runtime: docker
+    region: frankfurt
+    plan: standard              # 2 GB RAM, 1 CPU: OCR va video uchun yetarli
+    dockerfilePath: ./tg_hunter/Dockerfile
+    dockerContext: ./tg_hunter
+    autoDeploy: true
+    buildFilter:
+      paths:
+        - tg_hunter/**          # repo ildizidagi boshqa fayllar o'zgarsa, agent qayta qurilmasin
+    disk:
+      name: data
+      mountPath: /app/data      # baza (hunter.db) va Telegram sessiyasi shu yerda saqlanadi
+      sizeGB: 1
+    envVars:
+      - key: TG_API_ID
+        sync: false
+      - key: TG_API_HASH
+        sync: false
+      - key: TG_SESSION_STRING
+        sync: false
+      - key: BOT_TOKEN
+        sync: false
+      - key: ADMIN_ID
+        sync: false
+      - key: TARGET_CHANNEL
+        sync: false
+      - key: SOURCE_CHANNELS
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: DRY_RUN
+        sync: false

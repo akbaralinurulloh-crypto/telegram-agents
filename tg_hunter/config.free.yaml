@@ -1,0 +1,14 @@
+# Render BEPUL reja (web service: 0.1 CPU, 512 MB, disk vaqtinchalik) uchun yengil rejim.
+# config.yaml ustiga qo'yiladi: faqat shu yerda yozilganlar o'zgaradi (qolgani config.yaml dagidek).
+extends: config.yaml
+
+media:
+  ocr_engines: [tesseract]      # RapidOCR (ONNX) 512 MB xotiraga sig'maydi
+  max_video_seconds: 5          # videolar "qo'lda ko'rib chiqish"ga o'tadi (post qilinmaydi): bepul protsessorda video OCR imkonsiz
+  max_download_mb: 15
+  max_frames: 10
+  sample_interval: 1.0
+
+watcher:
+  catch_up: false               # sessiya har safar matndan tiklanadi, saqlangan holat yo'q
+  poll_window_hours: 1          # baza qayta ishga tushganda o'chadi: eski postlarni qayta ko'rib chiqmaslik uchun 1 soat

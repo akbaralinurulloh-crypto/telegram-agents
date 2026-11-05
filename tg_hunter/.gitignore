@@ -1,0 +1,10 @@
+.env
+*.session
+*.session-journal
+*.sqlite
+*.db
+data/
+tmp/
+__pycache__/
+.venv/
+.pytest_cache/

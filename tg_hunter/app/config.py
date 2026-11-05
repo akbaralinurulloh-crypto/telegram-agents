@@ -1,0 +1,161 @@
+from __future__ import annotations
+
+from functools import lru_cache
+from pathlib import Path
+from typing import Literal
+
+import yaml
+from pydantic import BaseModel, Field, model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class ScoringWeights(BaseModel):
+    topic_fit: float = 0.30
+    quality: float = 0.25
+    audience_interest: float = 0.25
+    media_quality: float = 0.20
+
+    @model_validator(mode="after")
+    def _sum_to_one(self) -> "ScoringWeights":
+        total = self.topic_fit + self.quality + self.audience_interest + self.media_quality
+        if abs(total - 1.0) > 1e-6:
+            raise ValueError(f"scoring.weights yig'indisi 1.0 bo'lishi shart, hozir {total}")
+        return self
+
+
+class ScoringCfg(BaseModel):
+    min_score: float = Field(7.0, ge=0, le=10)
+    weights: ScoringWeights = ScoringWeights()
+
+
+class WatcherCfg(BaseModel):
+    catch_up: bool = True
+    poll_minutes: float = Field(10, gt=0)  # zaxira: Telegram yangilik yubormasa ham, manbalarni shuncha daqiqada bir tekshiradi
+    poll_window_hours: float = Field(24, gt=0)  # zaxira tekshiruv shuncha soat ichidagi postlarni oladi
+    include_groups: bool = False  # manba GURUH bo'lsa (a'zolar yozishmasi) — sukut bo'yicha o'tkazib yuboriladi
+
+
+class CaptionCfg(BaseModel):
+    max_length: int = Field(1024, gt=0, le=1024)
+    max_attempts: int = Field(2, ge=1)
+
+
+class KillSwitchCfg(BaseModel):
+    max_consecutive_errors: int = Field(5, ge=1)
+
+
+class LLMCfg(BaseModel):
+    provider: str = Field("gemini", pattern="^(gemini|anthropic)$")
+    gemini_model: str = "gemini-3.5-flash"
+    gemini_fallback_models: list[str] = ["gemini-3.8-flash", "gemini-flash-latest"]
+    anthropic_model: str = "claude-sonnet-5-5"
+    max_images: int = Field(6, ge=0, le=20)
+    timeout_seconds: float = Field(90, gt=0)
+    max_retries: int = Field(3, ge=0)
+
+
+class MediaCfg(BaseModel):
+    sample_interval: float = Field(0.5, gt=0)  # videodan kadr olish oralig'i (soniya)
+    max_frames: int = Field(120, ge=1)
+    max_video_seconds: float = Field(300, gt=0)
+    max_video_mb: float = Field(45, gt=0)  # Bot API yuborish limiti 50 MB: kattaroq video shu hajmgacha SIQILADI
+    max_download_mb: float = Field(300, gt=0)  # manbadan shundan katta videoni yuklamaymiz (rad etiladi)
+    max_cover_fraction: float = Field(0.30, gt=0, le=1)  # kadrning shundan ko'p qismini yopish kerak bo'lsa — REJECT
+    logo_check: bool = True  # logotip/suv belgisini vizual LLM bilan tekshirish (LLM kvotasini ishlatadi)
+    ocr_engines: list[Literal["tesseract", "rapidocr"]] = ["tesseract", "rapidocr"]  # kam xotirali serverda faqat ["tesseract"]
+
+
+class PipelineCfg(BaseModel):
+    defer_max_attempts: int = Field(5, ge=1)  # LLM vaqtincha ishlamasa (kvota/503) postni shuncha marta keyinroq qayta urinadi
+    defer_base_minutes: float = Field(2, gt=0)
+    media_dir: str = "data/media"
+    poll_seconds: float = Field(5, gt=0)
+    max_reject_notices_per_hour: int = Field(15, ge=1)  # DRY-RUN rad xabarlari soat uchun chegarasi (spamdan himoya)
+    notify_rejects_in_dryrun: bool = True  # DRY-RUN da rad etilgan postlar sababini ham adminga ko'rsatadi
+    downtime_notice_minutes: float = Field(10, gt=0)  # shundan uzoq o'chiq turgan bo'lsa, ishga tushganda ogohlantiradi
+
+
+class ReportsCfg(BaseModel):
+    grace_hours: float = Field(12, gt=0)  # kompyuter uxlab/o'chiq turgan bo'lsa, o'tkazib yuborilgan hisobot shuncha soatgacha KECHIKIB yuboriladi
+    sleep_gap_minutes: float = Field(5, gt=0)  # shundan uzoq 'jim' turish uyqu deb hisoblanadi va adminga xabar beriladi
+
+
+class AppConfig(BaseModel):
+    timezone: str = "Asia/Tashkent"
+    report_times: list[str] = ["08:00", "13:00", "20:00"]
+    channel_topic: str = ""
+    scoring: ScoringCfg = ScoringCfg()
+    watcher: WatcherCfg = WatcherCfg()
+    caption: CaptionCfg = CaptionCfg()
+    banned_caption_keywords: list[str] = []
+    kill_switch: KillSwitchCfg = KillSwitchCfg()
+    llm: LLMCfg = LLMCfg()
+    media: MediaCfg = MediaCfg()
+    pipeline: PipelineCfg = PipelineCfg()
+    reports: ReportsCfg = ReportsCfg()
+
+
+class Settings(BaseSettings):
+    """Maxfiy kalitlar va muhit sozlamalari — faqat .env / muhit o'zgaruvchilaridan."""
+
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore", populate_by_name=True)
+
+    tg_api_id: int | None = None
+    tg_api_hash: str | None = None
+    tg_session_path: str = "data/hunter.session"
+    tg_session_string: str = ""  # ixtiyoriy: sessiya matn ko'rinishida (Railway/Render kabi xizmatlar uchun). MAXFIY!
+    bot_token: str | None = None
+    admin_id: int | None = None
+    target_channel: str | None = None
+    source_channels_raw: str = Field("", alias="SOURCE_CHANNELS")
+    anthropic_api_key: str | None = None
+    gemini_api_key: str | None = None
+    database_url: str = "sqlite+aiosqlite:///data/hunter.db"
+    dry_run: bool = True
+    config_path: str = "config.yaml"
+    log_level: str = "INFO"
+
+    @property
+    def source_channels(self) -> list[str]:
+        return [s.strip() for s in self.source_channels_raw.split(",") if s.strip()]
+
+    def require_bot(self) -> None:
+        missing = [n for n, v in (("BOT_TOKEN", self.bot_token), ("ADMIN_ID", self.admin_id), ("TARGET_CHANNEL", self.target_channel)) if not v]
+        if missing:
+            raise RuntimeError(f".env da to'ldirilmagan: {', '.join(missing)}")
+
+    def require_telegram(self) -> None:
+        missing = [
+            name
+            for name, val in (
+                ("TG_API_ID", self.tg_api_id),
+                ("TG_API_HASH", self.tg_api_hash),
+                ("SOURCE_CHANNELS", self.source_channels or None),
+            )
+            if not val
+        ]
+        if missing:
+            raise RuntimeError(f".env da to'ldirilmagan: {', '.join(missing)}")
+
+
+def _deep_merge(base: dict, over: dict) -> dict:
+    out = dict(base)
+    for key, val in over.items():
+        out[key] = _deep_merge(out[key], val) if isinstance(val, dict) and isinstance(out.get(key), dict) else val
+    return out
+
+
+def load_app_config(path: str | Path) -> AppConfig:
+    """YAML o'qiydi. `extends: boshqa.yaml` bo'lsa, avval o'sha fayl olinadi, ustiga bu fayldagi o'zgarishlar qo'yiladi."""
+    p = Path(path)
+    data = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
+    base_name = data.pop("extends", None)
+    if base_name:
+        base = yaml.safe_load((p.parent / base_name).read_text(encoding="utf-8")) or {}
+        data = _deep_merge(base, data)
+    return AppConfig.model_validate(data)
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()
