@@ -1,5 +1,4 @@
 telethon>=1.36
-cryptg>=0.4
 aiogram>=3.4
 anthropic>=0.40
 sqlalchemy[asyncio]>=2.0
