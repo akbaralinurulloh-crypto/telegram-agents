@@ -271,7 +271,7 @@ class Pipeline:
 
     async def _clean_photo(self, f: MediaFile, tmp: Path, idx: int, score: float) -> tuple[MediaItem, bytes]:
         img = _open(f.path)
-        r = await asyncio.to_thread(clean_image, img, self.engines or default_engines(), self.cfg.media.max_cover_fraction)
+        r = await asyncio.to_thread(clean_image, img, self.engines or default_engines(self.cfg.media.ocr_engines), self.cfg.media.max_cover_fraction)
         if r.status != "ok":
             raise Rejected("rejected" if r.status == "reject" else "manual_review", r.reason or "image_clean", score=score)
         out = r.image
@@ -291,7 +291,7 @@ class Pipeline:
     async def _clean_video(self, f: MediaFile, tmp: Path, idx: int, score: float) -> MediaItem:
         m = self.cfg.media
         r = await asyncio.to_thread(
-            clean_video, f.path, tmp / f"clean_{idx}.mp4", self.engines or default_engines(),
+            clean_video, f.path, tmp / f"clean_{idx}.mp4", self.engines or default_engines(m.ocr_engines),
             sample_interval=m.sample_interval, max_frames=m.max_frames, max_seconds=m.max_video_seconds,
             max_mb=m.max_download_mb, max_cover_fraction=m.max_cover_fraction,
         )

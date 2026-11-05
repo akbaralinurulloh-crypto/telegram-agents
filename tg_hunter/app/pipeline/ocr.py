@@ -120,8 +120,10 @@ class RapidOCREngine:
         return lines
 
 
-def default_engines() -> list[OCREngine]:
-    return [TesseractEngine(), RapidOCREngine()]
+def default_engines(names: list[str] | None = None) -> list[OCREngine]:
+    """names: ["tesseract", "rapidocr"] (sukut bo'yicha ikkalasi). Kam xotirali serverda faqat ["tesseract"]: RapidOCR yuklanmaydi."""
+    available = {"tesseract": TesseractEngine, "rapidocr": RapidOCREngine}
+    return [available[n]() for n in (names or ["tesseract", "rapidocr"])]
 
 
 def _scaled(line: OCRLine, f: float) -> OCRLine:

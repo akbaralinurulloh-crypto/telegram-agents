@@ -1,23 +1,24 @@
-# TG Hunter: Render Blueprint (Background Worker, Docker, doimiy disk).
+# TG Hunter: Render BEPUL reja (sinov rejimi). Karta kerak emas, lekin juda cheklangan:
+# 0.1 CPU, 512 MB, disk vaqtinchalik, 15 daqiqada uxlaydi (agent o'zini har 10 daqiqada uyg'otadi).
+# Yengil rejim config.free.yaml da: faqat Tesseract, videolar qo'lda ko'rib chiqishga o'tadi, baza qayta ishga tushganda o'chadi.
+# Faqat SINOV (DRY-RUN) uchun. Jonli ishlash uchun render.paid.yaml (Standard + disk) yoki VPS.
 # Bu faylda SIRLAR YO'Q: `sync: false` degani qiymatni Render panelida (Environment) o'zingiz kiritasiz.
-# Blueprint yo'li: tg_hunter/render.yaml (repo ildizidagi render.yaml eski loyiha uchun).
 services:
-  - type: worker
+  - type: web
     name: tg-hunter
     runtime: docker
     region: frankfurt
-    plan: standard              # 2 GB RAM, 1 CPU: OCR va video uchun yetarli
+    plan: free
     dockerfilePath: ./tg_hunter/Dockerfile
     dockerContext: ./tg_hunter
+    healthCheckPath: /health
     autoDeploy: true
     buildFilter:
       paths:
         - tg_hunter/**          # repo ildizidagi boshqa fayllar o'zgarsa, agent qayta qurilmasin
-    disk:
-      name: data
-      mountPath: /app/data      # baza (hunter.db) va Telegram sessiyasi shu yerda saqlanadi
-      sizeGB: 1
     envVars:
+      - key: CONFIG_PATH
+        value: config.free.yaml
       - key: TG_API_ID
         sync: false
       - key: TG_API_HASH

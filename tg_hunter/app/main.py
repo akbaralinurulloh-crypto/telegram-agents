@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import signal
 from datetime import datetime, timedelta, timezone
 
@@ -10,6 +11,7 @@ from app.bot_admin import AdminContext, build_dispatcher, is_dry_run, is_paused
 from app.config import get_settings, load_app_config
 from app.db.repository import Repository
 from app.db.session import create_all, make_engine, make_sessionmaker
+from app.health import keep_alive_loop, start_health_server
 from app.llm.factory import build_llm
 from app.media_telethon import TelethonMedia
 from app.pipeline.publisher import AiogramPublisher
@@ -23,6 +25,14 @@ async def run() -> None:
     settings = get_settings()
     setup_logging(settings.log_level)
     log = get_logger("main")
+
+    # Render bepul 'web service': $PORT da HTTP javob berish shart va uxlab qolmaslik uchun o'zimizga so'rov yuboramiz.
+    health_runner = keep_alive_task = None
+    if os.environ.get("PORT"):
+        health_runner = await start_health_server(int(os.environ["PORT"]))
+        if os.environ.get("RENDER_EXTERNAL_URL"):
+            keep_alive_task = asyncio.create_task(keep_alive_loop(os.environ["RENDER_EXTERNAL_URL"]), name="keep_alive")
+
     cfg = load_app_config(settings.config_path)
     settings.require_telegram()
     settings.require_bot()
@@ -141,6 +151,11 @@ async def run() -> None:
     await bot.session.close()
     await client.disconnect()
     await engine.dispose()
+    if keep_alive_task:
+        keep_alive_task.cancel()
+        await asyncio.gather(keep_alive_task, return_exceptions=True)
+    if health_runner:
+        await health_runner.cleanup()
 
 
 if __name__ == "__main__":

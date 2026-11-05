@@ -38,8 +38,14 @@ bash setup.sh      # Docker, swap, devor, GitHub deploy kaliti; kalit so'ralsa â
 Keyin skript chiqargan 6 qadamni bajaring. Yangilash: `bash deploy/update.sh`.
 Avtomatik deploy (ixtiyoriy): `.github/workflows/deploy.yml` â€” repo Variables'da `DEPLOY_ENABLED=true` va Secrets: `SERVER_HOST`, `SERVER_USER`, `SERVER_SSH_KEY`.
 
+### Render BEPUL reja (sinov rejimi, karta kerak emas)
+`tg_hunter/render.yaml` (web service, free). Juda cheklangan: 0.1 CPU, 512 MB, disk vaqtinchalik, 15 daqiqada uxlaydi
+(agent o'zini har 10 daqiqada uyg'otadi: `app/health.py`). `config.free.yaml` yengil rejim: faqat Tesseract, videolar "qo'lda ko'rib chiqish"ga
+o'tadi (post qilinmaydi), baza har qayta ishga tushganda o'chadi (shuning uchun poll_window_hours=1). Faqat SINOV (DRY-RUN) uchun:
+jonli ishlash uchun pullik reja (`render.paid.yaml`) yoki VPS. Qadamlar: `RENDER_UCHUN_SESSIYA.bat` -> Blueprint -> Environment -> "Add from .env".
+
 ### GitHub orqali ulash (Render, pullik): tugmalar bilan
-Render'da agent **Background Worker** sifatida ishlaydi (Docker). Bepul reja yetmaydi. Kerak: **Standard** (2 GB RAM, 1 CPU; manbalarda ~$25/oy)
+Render'da agent **Background Worker** sifatida ishlaydi (Docker; Blueprint: `render.paid.yaml`). Bepul reja bunga yetmaydi. Kerak: **Standard** (2 GB RAM, 1 CPU; manbalarda ~$25/oy)
 va **Disk** (baza + sessiya uchun). Narxlar uchinchi tomon manbalaridan, aniqini Render narx sahifasidan tekshiring: VPS (Hetzner) bir necha baravar arzon.
 Sirlar Render'ning o'zgaruvchilar omborida turadi (VPS'da esa faqat o'z diskingizda). 2026 da Render hodisasi topilmadi, lekin bu kafolat emas.
 Ehtiyot chorasi: agent uchun ALOHIDA Telegram akkaunt (ikkinchi raqam) ishlating.

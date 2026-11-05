@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 import yaml
 from pydantic import BaseModel, Field, model_validator
@@ -61,6 +62,7 @@ class MediaCfg(BaseModel):
     max_download_mb: float = Field(300, gt=0)  # manbadan shundan katta videoni yuklamaymiz (rad etiladi)
     max_cover_fraction: float = Field(0.30, gt=0, le=1)  # kadrning shundan ko'p qismini yopish kerak bo'lsa — REJECT
     logo_check: bool = True  # logotip/suv belgisini vizual LLM bilan tekshirish (LLM kvotasini ishlatadi)
+    ocr_engines: list[Literal["tesseract", "rapidocr"]] = ["tesseract", "rapidocr"]  # kam xotirali serverda faqat ["tesseract"]
 
 
 class PipelineCfg(BaseModel):
@@ -136,8 +138,21 @@ class Settings(BaseSettings):
             raise RuntimeError(f".env da to'ldirilmagan: {', '.join(missing)}")
 
 
+def _deep_merge(base: dict, over: dict) -> dict:
+    out = dict(base)
+    for key, val in over.items():
+        out[key] = _deep_merge(out[key], val) if isinstance(val, dict) and isinstance(out.get(key), dict) else val
+    return out
+
+
 def load_app_config(path: str | Path) -> AppConfig:
-    data = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
+    """YAML o'qiydi. `extends: boshqa.yaml` bo'lsa, avval o'sha fayl olinadi, ustiga bu fayldagi o'zgarishlar qo'yiladi."""
+    p = Path(path)
+    data = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
+    base_name = data.pop("extends", None)
+    if base_name:
+        base = yaml.safe_load((p.parent / base_name).read_text(encoding="utf-8")) or {}
+        data = _deep_merge(base, data)
     return AppConfig.model_validate(data)
 
 
