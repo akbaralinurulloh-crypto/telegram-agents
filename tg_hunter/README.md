@@ -25,7 +25,12 @@ Matn-only postlar o'zgartirilgan (tozalangan) holda izohsiz joylanadi. Media pos
 7. Ishga tushirish: `docker compose up -d --build`. Loglar: `docker compose logs -f`.
 
 ### Serverda (24/7, tavsiya)
-Ubuntu 22.04/24.04, kamida 2 vCPU / 4 GB RAM. Serverda root sifatida:
+**Windows'dan bir bosishda (eng oson):** serverni yarating (Ubuntu 24.04, kamida 2 vCPU / 4 GB, SSH kaliti `~/.ssh/hunter_vps` bilan),
+so'ng `VPSGA_JOYLASH.bat` ni ikki marta bosing. U IP so'raydi, ulanishni sinaydi, noutbukdagi agentni to'xtatadi, Telegramga yangi kirishni
+so'raydi, papkani serverga yuboradi va `deploy/server_install.sh` ni ishga tushiradi. Serverda agent allaqachon ishlagan bo'lsa (baza bor),
+ustidan yozib yubormaslik uchun to'xtaydi.
+
+**Qo'lda yoki GitHub orqali:** Ubuntu 22.04/24.04, kamida 2 vCPU / 4 GB RAM. Serverda root sifatida:
 ```
 curl -fsSL https://raw.githubusercontent.com/akbaralinurulloh-crypto/telegram-agents/main/tg_hunter/deploy/setup.sh -o setup.sh   # private repo: skriptni qo'lda nusxalang
 bash setup.sh      # Docker, swap, devor, GitHub deploy kaliti; kalit so'ralsa — GitHub'ga qo'shib, qayta ishga tushiring
