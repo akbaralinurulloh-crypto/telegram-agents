@@ -38,6 +38,21 @@ bash setup.sh      # Docker, swap, devor, GitHub deploy kaliti; kalit so'ralsa �
 Keyin skript chiqargan 6 qadamni bajaring. Yangilash: `bash deploy/update.sh`.
 Avtomatik deploy (ixtiyoriy): `.github/workflows/deploy.yml` — repo Variables'da `DEPLOY_ENABLED=true` va Secrets: `SERVER_HOST`, `SERVER_USER`, `SERVER_SSH_KEY`.
 
+### GitHub orqali ulash (Render, pullik): tugmalar bilan
+Render'da agent **Background Worker** sifatida ishlaydi (Docker). Bepul reja yetmaydi. Kerak: **Standard** (2 GB RAM, 1 CPU; manbalarda ~$25/oy)
+va **Disk** (baza + sessiya uchun). Narxlar uchinchi tomon manbalaridan, aniqini Render narx sahifasidan tekshiring: VPS (Hetzner) bir necha baravar arzon.
+Sirlar Render'ning o'zgaruvchilar omborida turadi (VPS'da esa faqat o'z diskingizda). 2026 da Render hodisasi topilmadi, lekin bu kafolat emas.
+Ehtiyot chorasi: agent uchun ALOHIDA Telegram akkaunt (ikkinchi raqam) ishlating.
+
+1. `RENDER_UCHUN_SESSIYA.bat` ni ikki marta bosing (noutbukda, Docker kerak): agentni to'xtatadi, Telegramga qayta kiritadi (telefon + kod)
+   va hamma o'zgaruvchilarni (kalitlar + sessiya matni) toza qatorlar qilib clipboardga nusxalaydi.
+2. dashboard.render.com -> **New -> Background Worker** -> GitHub reponi ulang (`telegram-agents`).
+3. Sozlamalar: **Language: Docker**; **Branch**: `claude/lucid-curie-94o0u2` (yoki PR merge qilingach `main`);
+   **Dockerfile Path**: `./tg_hunter/Dockerfile`; **Docker Build Context Directory**: `./tg_hunter`; **Region**: Frankfurt; **Instance Type**: Standard.
+4. **Environment -> Add from .env**: clipboarddagi matnni bitta Ctrl+V bilan qo'ying.
+5. **Disks -> Add Disk**: Name `data`, Mount Path `/app/data`, Size 1 GB. **MAJBURIY**: baza va sessiya fayli shu yerda saqlanadi.
+6. **Create Background Worker**. Deploy tugagach loglarda "TG Hunter ishga tushdi" chiqadi, bot sizga yozadi; `/status`.
+
 ### GitHub orqali ulash (Railway): tugmalar bilan
 > **OGOHLANTIRISH (2026-11-04): hozircha TAVSIYA ETILMAYDI.** 21-oktabr 2026 kuni Railway o'zgaruvchilar saqlanadigan tizimda
 > xavfsizlik hodisasini e'lon qildi: hujumchi mijozlarning o'zgaruvchilariga kirgan bo'lishi mumkin, barcha foydalanuvchilarga
@@ -47,7 +62,7 @@ Avtomatik deploy (ixtiyoriy): `.github/workflows/deploy.yml` — repo Variables'
 Server o'rnatmaysiz: GitHub reponi ulaysiz, Railway o'zi quradi va 24/7 ishga tushiradi. Narxi ishlatilganiga qarab (taxminan $5-10/oy).
 Bepul rejalar (masalan Render Free: 0.1 CPU, 512 MB, 15 daqiqada uxlaydi, disk o'chadi) OCR va video uchun yetmaydi.
 
-1. **O'zgaruvchilarni tayyorlang** (noutbukda, bir marta; Docker kerak): `RAILWAY_UCHUN_SESSIYA.bat` ni ikki marta bosing.
+1. **O'zgaruvchilarni tayyorlang** (noutbukda, bir marta; Docker kerak): `RENDER_UCHUN_SESSIYA.bat` ni ikki marta bosing (u Railway uchun ham mos).
    U agentni to'xtatadi, Telegramga qayta kiritadi (telefon + kod) va Railway uchun hamma o'zgaruvchilarni (kalitlar + sessiya matni)
    toza qatorlar qilib clipboardga nusxalaydi. Qo'lda: `python -m scripts.login`, keyin `python -m scripts.export_session --railway`.
    (`.env` ni xom nusxalamang: Railway `DRY_RUN=true  # izoh` dagi izohni ham qiymatga qo'shib yuboradi.)

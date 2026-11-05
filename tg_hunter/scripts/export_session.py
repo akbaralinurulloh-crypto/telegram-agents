@@ -1,13 +1,13 @@
 """Sessiya matni (TG_SESSION_STRING) va Railway/Render uchun tayyor o'zgaruvchilar blokini chiqaradi.
 
     python -m scripts.export_session                      # faqat TG_SESSION_STRING qatori
-    python -m scripts.export_session --railway            # Railway "Raw Editor" uchun to'liq blok
-    python -m scripts.export_session --railway --out data/railway_variables.txt   # faylga (RAILWAY_UCHUN_SESSIYA.bat ishlatadi)
+    python -m scripts.export_session --vars               # Render/Railway o'zgaruvchilari uchun to'liq blok (--railway ham ishlaydi)
+    python -m scripts.export_session --vars --out data/variables.txt   # faylga (RENDER_UCHUN_SESSIYA.bat ishlatadi)
 
 DIQQAT: natija Telegram akkauntingizga TO'LIQ kirish va API kalitlaringizni o'z ichiga oladi.
 Uni GitHub'ga, chatga, skrinshotga qo'ymang.
 
-Nega .env ni xom nusxalamaymiz: Railway "Raw Editor" qatordagi izohni (`DRY_RUN=true  # ...`) qiymatga qo'shib yuboradi
+Nega .env ni xom nusxalamaymiz: Render/Railway qatordagi izohni (`DRY_RUN=true  # ...`) qiymatga qo'shib yuborishi mumkin
 va dastur ishga tushmay qoladi. Bu blok qiymatlarni .env dan to'g'ri o'qib, toza qatorlar qilib beradi.
 """
 import argparse
@@ -37,7 +37,7 @@ def railway_block(s: Settings, session_line: str) -> str:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--railway", action="store_true", help="Railway Variables uchun to'liq blok (kalitlar + sessiya)")
+    ap.add_argument("--vars", "--railway", dest="railway", action="store_true", help="Render/Railway o'zgaruvchilari uchun to'liq blok (kalitlar + sessiya)")
     ap.add_argument("--out", help="natijani shu faylga yozadi (ekranga chiqarmaydi)")
     args = ap.parse_args()
     s = get_settings()

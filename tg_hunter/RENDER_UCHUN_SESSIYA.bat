@@ -2,8 +2,8 @@
 setlocal
 cd /d "%~dp0"
 echo.
-echo ==== TG Hunter: Railway uchun Telegram sessiyasi ====
-echo Bu fayl: 1) noutbukdagi agentni to'xtatadi, 2) Telegramga QAYTA kiritadi, 3) Railway uchun hamma o'zgaruvchilarni clipboardga nusxalaydi.
+echo ==== TG Hunter: Render uchun Telegram sessiyasi va o'zgaruvchilar ====
+echo Bu fayl: 1) noutbukdagi agentni to'xtatadi, 2) Telegramga QAYTA kiritadi, 3) Render uchun hamma o'zgaruvchilarni clipboardga nusxalaydi.
 echo.
 echo [1/4] Noutbukdagi agent to'xtatilmoqda...
 docker compose down
@@ -19,16 +19,16 @@ echo       Kodni hech kimga va hech qaysi chatga yubormang!
 docker compose run --rm hunter python -m scripts.login
 if errorlevel 1 goto xato
 echo.
-echo [4/4] Railway uchun o'zgaruvchilar clipboardga nusxalanmoqda...
-docker compose run --rm hunter python -m scripts.export_session --railway --out data/railway_variables.txt
+echo [4/4] O'zgaruvchilar clipboardga nusxalanmoqda...
+docker compose run --rm hunter python -m scripts.export_session --vars --out data/variables.txt
 if errorlevel 1 goto xato
-type data\railway_variables.txt | clip
+type data\variables.txt | clip
 if errorlevel 1 goto xato
-del /q data\railway_variables.txt
+del /q data\variables.txt
 del /q data\hunter.session
 if exist data\hunter.session-journal del /q data\hunter.session-journal
 echo.
-echo TAYYOR. Hamma o'zgaruvchilar clipboardda: Railway "Variables" - "Raw Editor" ga bitta Ctrl+V qiling.
+echo TAYYOR. Hamma o'zgaruvchilar clipboardda: Render "Environment" - "Add from .env" ga bitta Ctrl+V qiling.
 echo Ichida Telegram akkauntingizga TO'LIQ kirish bor: boshqa joyga yozmang, hech kimga bermang.
 echo Noutbukdagi sessiya nusxasi o'chirildi, shunda agent ikki joyda bir vaqtda ishlab qolmaydi.
 echo.

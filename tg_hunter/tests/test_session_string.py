@@ -130,6 +130,41 @@ def test_railway_block_is_clean_and_forces_dry_run():
     assert all("#" not in line and " " not in line for line in lines)  # inline izoh yoki ortiqcha bo'shliq yo'q
 
 
+@pytest.mark.parametrize("flag", ["--vars", "--railway"])
+def test_export_script_variables_flag_writes_clean_block(tmp_path, monkeypatch, flag):
+    from app.config import get_settings
+    from scripts import export_session
+
+    text, _ = make_string()
+    sess = tmp_path / "hunter.session"
+    assert ensure_session_file(str(sess), text) is True
+    out = tmp_path / "variables.txt"
+    env = {
+        "TG_API_ID": "111",
+        "TG_API_HASH": "0123456789abcdef0123456789abcdef",
+        "BOT_TOKEN": "1:fake",
+        "ADMIN_ID": "5",
+        "TARGET_CHANNEL": "@kanal",
+        "SOURCE_CHANNELS": "@a,@b",
+        "GEMINI_API_KEY": "fakekey",
+        "DRY_RUN": "false",
+        "TG_SESSION_PATH": str(sess),
+    }
+    for k, v in env.items():
+        monkeypatch.setenv(k, v)
+    get_settings.cache_clear()
+    monkeypatch.setattr("sys.argv", ["export_session", flag, "--out", str(out)])
+    try:
+        export_session.main()
+    finally:
+        get_settings.cache_clear()
+    data = out.read_text(encoding="utf-8")
+    lines = data.splitlines()
+    assert "DRY_RUN=true" in lines and "TG_API_ID=111" in lines and "SOURCE_CHANNELS=@a,@b" in lines
+    assert lines[-1] == f"TG_SESSION_STRING={text}"
+    assert not data.endswith("\n")  # oxirida ortiqcha qator uzilishi yo'q
+
+
 def test_offline_check_accepts_session_string_without_file(tmp_path):
     text, _ = make_string()
     s = Settings(_env_file=None, TG_SESSION_PATH=str(tmp_path / "none.session"), TG_SESSION_STRING=text)
