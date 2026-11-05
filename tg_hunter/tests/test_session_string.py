@@ -39,6 +39,19 @@ def test_string_roundtrip_creates_working_session_file(tmp_path):
     assert export_session_string(str(path)) == text  # fayl -> matn -> bir xil
 
 
+@pytest.mark.parametrize("wrap", ["TG_SESSION_STRING={}", "tg_session_string={}", '"{}"', "'{}'", "  {}  \n"])
+def test_pasted_variants_are_cleaned(tmp_path, wrap):
+    # foydalanuvchi qiymat maydoniga butun qatorni, tirnoq bilan yoki bo'shliq bilan qo'yib yuborishi mumkin
+    text, key = make_string()
+    path = tmp_path / "hunter.session"
+    assert ensure_session_file(str(path), wrap.format(text)) is True
+    sess = read_file_session(path)
+    try:
+        assert sess.auth_key.key == key
+    finally:
+        sess.close()
+
+
 def test_path_without_suffix_gets_session_extension(tmp_path):
     text, _ = make_string()
     assert ensure_session_file(str(tmp_path / "hunter"), text) is True

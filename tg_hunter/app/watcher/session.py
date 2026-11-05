@@ -27,6 +27,9 @@ def ensure_session_file(path: str, session_string: str | None) -> bool:
     Fayl bor bo'lsa tegmaydi: unda yangiroq holat (yangilanishlar pozitsiyasi, kanal ma'lumotlari) bo'ladi.
     """
     text = (session_string or "").strip()
+    if text.upper().startswith("TG_SESSION_STRING="):  # qiymat maydoniga butun "KALIT=qiymat" qatori qo'yilgan bo'lsa
+        text = text.split("=", 1)[1].strip()
+    text = text.strip("\"'")
     if not text:
         return False
     target = session_file(path)
